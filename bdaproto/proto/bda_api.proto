@@ -1,0 +1,112 @@
+syntax = "proto3";
+package bda;
+option go_package = "./;pb";
+import "google/api/annotations.proto";
+import "bda_model.proto";
+
+service BDA {
+    rpc GetRevisions( GetRevisionsRequest ) returns ( GetRevisionsResponse ) {
+        option (google.api.http) = {
+            get: "/api/v1/revisions"
+        };
+    }
+    rpc GetNamespaces( GetNamespacesRequest ) returns ( GetNamespacesResponse ) {
+        option (google.api.http) = {
+            get: "/api/v1/namespaces"
+        };
+    }
+    rpc GetKinds( GetKindsRequest ) returns ( GetKindsResponse ) {
+        option (google.api.http) = {
+            get: "/api/v1/kinds"
+        };
+    }
+
+    rpc GetResources( GetResourcesRequest ) returns ( GetResourcesResponse ) {
+        option (google.api.http) = {
+            get: "/api/v1/resources"
+        };
+    }
+    rpc StreamResources( GetResourcesRequest ) returns ( stream Resource ) {
+        option (google.api.http) = {
+            get: "/api/v1/stream/resources"
+        };
+    }
+    rpc DelResources( DelResourcesRequest ) returns ( DelResourceResponse ) {
+        option (google.api.http) = {
+            delete: "/api/v1/resources"
+        };
+    }
+    rpc GetResource( GetResourceRequest ) returns ( Resource ) {
+        option (google.api.http) = {
+            get: "/api/v1/resources/{revision}/{kind}/{namespace}/{name}"
+        };
+    }
+    rpc DelResource( DelResourceRequest ) returns ( DelResourceResponse ) {
+        option (google.api.http) = {
+            delete: "/api/v1/resources/{revision}/{kind}/{namespace}/{name}"
+        };
+    }
+    rpc PutResource( PutResourceRequest ) returns ( PutResourceResponse ) {
+        option (google.api.http) = {
+            put: "/api/v1/resources"
+            body: "*"
+        };
+    }
+}
+
+message GetRevisionsRequest{
+    bool ph = 100;
+}
+message GetNamespacesRequest{
+    bool ph = 100;
+}
+message GetKindsRequest{
+    bool ph = 100;
+}
+
+message GetResourcesResponse{
+    repeated Resource resources = 1;
+}
+message GetRevisionsResponse{
+    repeated string revisions = 1;
+}
+message GetNamespacesResponse{
+    repeated string namespaces = 1;
+}
+message GetKindsResponse{
+    repeated string kinds = 1;
+}
+
+message GetResourcesRequest{
+    string revision = 1;   //blank is latest
+    string namespaces = 2; //all for all or comma separated values. blank is all
+    string kinds = 3;      //all for all or comma separated values. blank is all
+    string bql = 4;
+}
+message DelResourcesRequest{
+    string revision = 1;   //blank is latest
+    string namespaces = 2; //all for all or comma separated values. blank is all
+    string kinds = 3;      //all for all or comma separated values. blank is all
+    string bql = 4;
+}
+message GetResourceRequest{
+    string revision = 1;
+    string namespace = 2;
+    string kind = 3;
+    string name = 4;
+}
+message PutResourceRequest{
+    Resource resource = 2;
+}
+message PutResourceResponse{
+    int32 updates = 1;
+}
+message DelResourceRequest{
+    string revision = 1;
+    string namespace = 2;
+    string kind = 3;
+    string name = 4;
+}
+message DelResourceResponse{
+    int32 updates = 1;
+}
