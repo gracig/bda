@@ -11,25 +11,18 @@ pub struct Resource {
     pub description: ::prost::alloc::string::String,
     #[prost(string, repeated, tag = "5")]
     pub tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    #[prost(oneof = "resource::ResourceKind", tags = "10, 50, 51")]
+    #[prost(oneof = "resource::ResourceKind", tags = "50, 51")]
     pub resource_kind: ::core::option::Option<resource::ResourceKind>,
 }
 /// Nested message and enum types in `Resource`.
 pub mod resource {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum ResourceKind {
-        #[prost(message, tag = "10")]
-        Variables(super::Variables),
         #[prost(message, tag = "50")]
         Function(super::Function),
         #[prost(message, tag = "51")]
         Runtime(super::Runtime),
     }
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Variables {
-    #[prost(message, optional, tag = "1")]
-    pub data: ::core::option::Option<::prost_types::Struct>,
 }
 /// Function is a resource that declares parameters and a procedure to be executed in order to apply
 /// transformations like build a source code or deploy an application
@@ -53,7 +46,7 @@ pub struct Parameter {
     #[prost(enumeration = "ParameterKind", tag = "3")]
     pub kind: i32,
     #[prost(message, optional, tag = "4")]
-    pub default_value: ::core::option::Option<::prost_types::Value>,
+    pub default_value: ::core::option::Option<::pbjson_types::Value>,
 }
 ///Runtime is a resource that describes an environment where procedures can be executed
 #[derive(Clone, PartialEq, ::prost::Message)]

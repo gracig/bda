@@ -1,8 +1,19 @@
+use bdaproto::resource::ResourceKind;
+use bdaproto::runtime::RuntimeKind;
 use bdaproto::Resource;
 
 pub fn defaults(r: &mut Resource) {
     default_string_if_empty(&mut r.namespace, "default");
     default_string_if_empty(&mut r.revision, "latest");
+}
+
+pub fn resource_kind_as_string(r: &Resource) -> Option<String> {
+    match r.resource_kind.as_ref()? {
+        ResourceKind::Function(_) => Some("function".to_owned()),
+        ResourceKind::Runtime(rt) => match rt.runtime_kind.as_ref()? {
+            RuntimeKind::Container(_) => Some("runtime.container".to_owned()),
+        },
+    }
 }
 
 fn default_string_if_empty(v: &mut String, d: &str) {
@@ -14,7 +25,6 @@ fn default_string_if_empty(v: &mut String, d: &str) {
 #[cfg(test)]
 mod tests {
     use bdaproto::*;
-
     #[test]
     fn test_default_string_if_empty() {
         let mut s = String::new();
@@ -37,38 +47,5 @@ mod tests {
         assert_ne!(r, expected);
         super::defaults(&mut r);
         assert_eq!(r, expected);
-
-        //use bdaproto::resource::*;
-        //use std::collections::BTreeMap;
-        //r.resource_kind = Some(ResourceKind::Variables(Variables {
-        //    data: Some(prost_types::Struct {
-        //        fields: BTreeMap::from([
-        //            (
-        //                "Mercury".to_owned(),
-        //                prost_types::Value {
-        //                    kind: Some(prost_types::value::Kind::NumberValue(4.0)),
-        //                },
-        //            ),
-        //            (
-        //                "Venus".to_owned(),
-        //                prost_types::Value {
-        //                    kind: Some(prost_types::value::Kind::NumberValue(0.7)),
-        //                },
-        //            ),
-        //            (
-        //                "Earth".to_owned(),
-        //                prost_types::Value {
-        //                    kind: Some(prost_types::value::Kind::NumberValue(1.0)),
-        //                },
-        //            ),
-        //            (
-        //                "Mars".to_owned(),
-        //                prost_types::Value {
-        //                    kind: Some(prost_types::value::Kind::NumberValue(1.5)),
-        //                },
-        //            ),
-        //        ]),
-        //    }),
-        //}));
     }
 }
