@@ -2,6 +2,7 @@
 
 members = [
     "bdaproto",
+    "bdacore",
     "bdaindex",
     "bdaengine",
     "bdaweb",
