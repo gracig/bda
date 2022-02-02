@@ -24,7 +24,6 @@ fn default_string_if_empty(v: &mut String, d: &str) {
 
 #[cfg(test)]
 mod tests {
-    use bdaproto::*;
     #[test]
     fn test_default_string_if_empty() {
         let mut s = String::new();
@@ -33,19 +32,18 @@ mod tests {
     }
     #[test]
     fn test_defaults() {
-        let expected = Resource {
-            name: String::from(""),
-            description: String::from(""),
-            namespace: String::from("default"),
-            revision: String::from("latest"),
-            tags: Vec::new(),
-            resource_kind: None,
-        };
-        let mut r = expected.clone();
-        r.namespace = "".to_owned();
-        r.revision = "".to_owned();
-        assert_ne!(r, expected);
-        super::defaults(&mut r);
-        assert_eq!(r, expected);
+        let expected: bdaproto::Resource = serde_json::from_value(serde_json::json!({
+            "name": "resource_name",
+            "description": "description",
+            "namespace": "default",
+            "revision": "latest",
+            "tags": ["tag1", "tag2"],
+        })).unwrap();
+        let mut got = expected.clone();
+        got.namespace = "".to_owned();
+        got.revision = "".to_owned();
+        assert_ne!(got, expected);
+        super::defaults(&mut got);
+        assert_eq!(got, expected);
     }
 }
