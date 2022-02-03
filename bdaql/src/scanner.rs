@@ -91,7 +91,7 @@ pub fn scan(s: &str) -> Vec<Token> {
     result
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Illegal(char),
     Eof,
