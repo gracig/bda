@@ -137,6 +137,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bdaql"
+version = "0.1.0"
+
+[[package]]
 name = "bdaweb"
 version = "0.1.0"
 dependencies = [
