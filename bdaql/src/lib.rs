@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 mod parser;
 mod scanner;
 
@@ -7,9 +5,9 @@ pub fn from_str(s: &str) -> Result<Ast, String> {
     parser::parse(s).map_err(|e| format!("error: {} parsing bql: {}", e.to_string(), s))
 }
 
-#[derive(PartialEq, Debug, Clone, PartialOrd)]
+#[derive(PartialEq, Debug, Clone, PartialOrd, Ord, Eq)]
 pub enum Value {
-    Number(f64),
+    Number(ordered_float::OrderedFloat<f64>),
     Text(String),
     Boolean(bool),
 }
@@ -57,6 +55,7 @@ pub enum Ast {
     },
 }
 
+/*
 //To be used as key index. Should implement Ord. f64 does not implement Ord
 //So a naive implementation was given below
 impl Eq for Value {
@@ -104,3 +103,4 @@ impl Ord for Value {
         }
     }
 }
+*/

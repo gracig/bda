@@ -8,6 +8,7 @@ use bdaproto::Resource;
 use bdaql::Value;
 #[cfg(test)]
 use mockall::{automock, predicate::*};
+use ordered_float::OrderedFloat;
 use std::{fmt::Debug, sync::Arc};
 
 #[cfg_attr(test, automock)]
@@ -181,19 +182,19 @@ impl Data {
         &self,
         kind: &'a EntityKind,
         field: &'a str,
-    ) -> Result<Box<dyn Iterator<Item = f64>>, String> {
+    ) -> Result<Box<dyn Iterator<Item = OrderedFloat<f64>>>, String> {
         let iter = self
             .datastore
             .values(kind, field)?
             .filter_map(|ov| match ov {
                 Some(v) => match v {
                     Value::Number(vv) => Some(vv),
-                    Value::Text(vv) => vv.parse::<f64>().ok(),
+                    Value::Text(vv) => vv.parse::<OrderedFloat<f64>>().ok(),
                     Value::Boolean(vv) => {
                         if vv {
-                            Some(1.0)
+                            Some(OrderedFloat(1.0))
                         } else {
-                            Some(0.0)
+                            Some(OrderedFloat(0.0))
                         }
                     }
                 },
@@ -213,7 +214,7 @@ impl Data {
             .filter_map(|ov| match ov {
                 Some(v) => match v {
                     Value::Number(vv) => {
-                        if vv == 0.0 || f64::is_nan(vv) {
+                        if vv == 0.0 || vv.is_nan() {
                             Some(false)
                         } else {
                             Some(true)

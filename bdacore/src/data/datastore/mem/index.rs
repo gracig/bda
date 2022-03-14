@@ -1,5 +1,6 @@
 use crate::data::{Entity, EntityID, EntityKind};
 use bdaql::{Ast, Value};
+use ordered_float::{Float, OrderedFloat};
 use ppom::mdb::{Iter, OMap};
 use std::ops::RangeBounds;
 
@@ -655,8 +656,14 @@ fn make_field_list(acessor: Vec<String>, json_value: serde_json::Value) -> Vec<F
             values.push(FieldValue::new(acessor, Some(Value::Boolean(v))));
         }
         serde_json::Value::Number(v) => match v.as_f64() {
-            Some(v) => values.push(FieldValue::new(acessor, Some(Value::Number(v)))),
-            None => values.push(FieldValue::new(acessor, Some(Value::Number(f64::NAN)))),
+            Some(v) => values.push(FieldValue::new(
+                acessor,
+                Some(Value::Number(OrderedFloat(v))),
+            )),
+            None => values.push(FieldValue::new(
+                acessor,
+                Some(Value::Number(OrderedFloat::nan())),
+            )),
         },
         serde_json::Value::String(v) => values.push(FieldValue::new(acessor, Some(Value::Text(v)))),
         serde_json::Value::Array(a) => {
@@ -969,7 +976,7 @@ mod test_super {
             index.has_value(
                 entity,
                 ".function.inputs.defaultValue",
-                &Some(Value::Number(6.0))
+                &Some(Value::Number(OrderedFloat(6.0)))
             ),
             true
         );

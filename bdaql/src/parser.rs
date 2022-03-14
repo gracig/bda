@@ -1,5 +1,7 @@
 use std::iter::Peekable;
 
+use ordered_float::OrderedFloat;
+
 use super::scanner::*;
 use super::{Ast, Value};
 
@@ -150,7 +152,7 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                     it.next();
                     nodes.push(Op::Ast(Ast::Equal {
                         fname: fname.clone(),
-                        fvalue: Some(Value::Number(n)),
+                        fvalue: Some(Value::Number(OrderedFloat(n))),
                         negate: negate,
                     }));
                     step = Step::Final
@@ -215,7 +217,7 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                     it.next();
                     nodes.push(Op::Ast(Ast::LessThan {
                         fname: fname.clone(),
-                        fvalue: Some(Value::Number(n)),
+                        fvalue: Some(Value::Number(OrderedFloat(n))),
                     }));
                     step = Step::Final
                 }
@@ -234,7 +236,7 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                     it.next();
                     nodes.push(Op::Ast(Ast::LessThanOrEqual {
                         fname: fname.clone(),
-                        fvalue: Some(Value::Number(n)),
+                        fvalue: Some(Value::Number(OrderedFloat(n))),
                     }));
                     step = Step::Final
                 }
@@ -253,7 +255,7 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                     it.next();
                     nodes.push(Op::Ast(Ast::GreaterThan {
                         fname: fname.clone(),
-                        fvalue: Some(Value::Number(n)),
+                        fvalue: Some(Value::Number(OrderedFloat(n))),
                     }));
                     step = Step::Final
                 }
@@ -272,7 +274,7 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                     it.next();
                     nodes.push(Op::Ast(Ast::GreaterThanOrEqual {
                         fname: fname.clone(),
-                        fvalue: Some(Value::Number(n)),
+                        fvalue: Some(Value::Number(OrderedFloat(n))),
                     }));
                     step = Step::Final
                 }
@@ -425,7 +427,7 @@ fn scan_values<'a, T: Iterator<Item = &'a Token>>(
             }
             Token::Number(n) => {
                 it.next();
-                values.push(Some(Value::Number(n)));
+                values.push(Some(Value::Number(OrderedFloat(n))));
             }
             Token::True => {
                 it.next();
@@ -629,7 +631,7 @@ mod tests {
             Ast::Equal {
                 fname: "field".to_owned(),
                 negate: false,
-                fvalue: Some(Value::Number(5.0))
+                fvalue: Some(Value::Number(OrderedFloat(5.0)))
             },
             parse(r#"field eq 5"#).unwrap()
         );
@@ -641,7 +643,7 @@ mod tests {
             Ast::Equal {
                 fname: "field".to_owned(),
                 negate: false,
-                fvalue: Some(Value::Number(-5.0))
+                fvalue: Some(Value::Number(OrderedFloat(-5.0)))
             },
             parse(r#"field eq -5"#).unwrap()
         );
@@ -653,7 +655,7 @@ mod tests {
             Ast::Equal {
                 fname: "field".to_owned(),
                 negate: true,
-                fvalue: Some(Value::Number(5.0))
+                fvalue: Some(Value::Number(OrderedFloat(5.0)))
             },
             parse(r#"field ne 5"#).unwrap()
         );
@@ -757,7 +759,7 @@ mod tests {
         assert_eq!(
             Ast::LessThan {
                 fname: "field".to_owned(),
-                fvalue: Some(Value::Number(5.0))
+                fvalue: Some(Value::Number(OrderedFloat(5.0)))
             },
             parse(r#"field < 5"#).unwrap()
         );
@@ -767,7 +769,7 @@ mod tests {
         assert_eq!(
             Ast::LessThan {
                 fname: "field".to_owned(),
-                fvalue: Some(Value::Number(5.0))
+                fvalue: Some(Value::Number(OrderedFloat(5.0)))
             },
             parse(r#"field lt 5"#).unwrap()
         );
@@ -778,7 +780,7 @@ mod tests {
         assert_eq!(
             Ast::LessThanOrEqual {
                 fname: "field".to_owned(),
-                fvalue: Some(Value::Number(5.0))
+                fvalue: Some(Value::Number(OrderedFloat(5.0)))
             },
             parse(r#"field <= 5"#).unwrap()
         );
@@ -788,7 +790,7 @@ mod tests {
         assert_eq!(
             Ast::LessThanOrEqual {
                 fname: "field".to_owned(),
-                fvalue: Some(Value::Number(5.0))
+                fvalue: Some(Value::Number(OrderedFloat(5.0)))
             },
             parse(r#"field lte 5"#).unwrap()
         );
@@ -799,7 +801,7 @@ mod tests {
         assert_eq!(
             Ast::GreaterThan {
                 fname: "field".to_owned(),
-                fvalue: Some(Value::Number(5.0))
+                fvalue: Some(Value::Number(OrderedFloat(5.0)))
             },
             parse(r#"field > 5"#).unwrap()
         );
@@ -809,7 +811,7 @@ mod tests {
         assert_eq!(
             Ast::GreaterThan {
                 fname: "field".to_owned(),
-                fvalue: Some(Value::Number(5.0))
+                fvalue: Some(Value::Number(OrderedFloat(5.0)))
             },
             parse(r#"field gt 5"#).unwrap()
         );
@@ -820,7 +822,7 @@ mod tests {
         assert_eq!(
             Ast::GreaterThanOrEqual {
                 fname: "field".to_owned(),
-                fvalue: Some(Value::Number(5.0))
+                fvalue: Some(Value::Number(OrderedFloat(5.0)))
             },
             parse(r#"field >= 5"#).unwrap()
         );
@@ -830,7 +832,7 @@ mod tests {
         assert_eq!(
             Ast::GreaterThanOrEqual {
                 fname: "field".to_owned(),
-                fvalue: Some(Value::Number(5.0))
+                fvalue: Some(Value::Number(OrderedFloat(5.0)))
             },
             parse(r#"field gte 5"#).unwrap()
         );
@@ -843,7 +845,7 @@ mod tests {
                 fname: "field".to_owned(),
                 fvalues: vec![
                     Some(Value::Text("a".to_owned())),
-                    Some(Value::Number(42.05)),
+                    Some(Value::Number(OrderedFloat(42.05))),
                     Some(Value::Boolean(true)),
                     None,
                 ],
@@ -860,7 +862,7 @@ mod tests {
                 fname: "field".to_owned(),
                 fvalues: vec![
                     Some(Value::Text("a".to_owned())),
-                    Some(Value::Number(42.05)),
+                    Some(Value::Number(OrderedFloat(42.05))),
                     Some(Value::Boolean(true)),
                     None,
                 ],
@@ -877,7 +879,7 @@ mod tests {
                 fname: "field".to_owned(),
                 fvalues: vec![
                     Some(Value::Text("a".to_owned())),
-                    Some(Value::Number(42.05)),
+                    Some(Value::Number(OrderedFloat(42.05))),
                     Some(Value::Boolean(true)),
                     None,
                 ],
@@ -894,7 +896,7 @@ mod tests {
                 fname: "field".to_owned(),
                 fvalues: vec![
                     Some(Value::Text("a".to_owned())),
-                    Some(Value::Number(42.05)),
+                    Some(Value::Number(OrderedFloat(42.05))),
                     Some(Value::Boolean(true)),
                     None,
                 ],
@@ -911,7 +913,7 @@ mod tests {
                 fname: "field".to_owned(),
                 fvalues: vec![
                     Some(Value::Text("a".to_owned())),
-                    Some(Value::Number(42.05)),
+                    Some(Value::Number(OrderedFloat(42.05))),
                     Some(Value::Boolean(true)),
                     None,
                 ],
@@ -928,7 +930,7 @@ mod tests {
                 fname: "field".to_owned(),
                 fvalues: vec![
                     Some(Value::Text("a".to_owned())),
-                    Some(Value::Number(42.05)),
+                    Some(Value::Number(OrderedFloat(42.05))),
                     Some(Value::Boolean(true)),
                     None,
                 ],
@@ -945,7 +947,7 @@ mod tests {
                 fname: "field".to_owned(),
                 fvalues: vec![
                     Some(Value::Text("a".to_owned())),
-                    Some(Value::Number(42.05)),
+                    Some(Value::Number(OrderedFloat(42.05))),
                     Some(Value::Boolean(true)),
                     None,
                 ],
@@ -962,7 +964,7 @@ mod tests {
                 fname: "field".to_owned(),
                 fvalues: vec![
                     Some(Value::Text("a".to_owned())),
-                    Some(Value::Number(42.05)),
+                    Some(Value::Number(OrderedFloat(42.05))),
                     Some(Value::Boolean(true)),
                     None,
                 ],
@@ -979,7 +981,7 @@ mod tests {
                 Box::new(Ast::Union(
                     Box::new(Ast::Equal {
                         fname: "field".to_owned(),
-                        fvalue: Some(Value::Number(42.0)),
+                        fvalue: Some(Value::Number(OrderedFloat(42.0))),
                         negate: false
                     }),
                     Box::new(Ast::Equal {
@@ -1003,7 +1005,7 @@ mod tests {
             Ast::Intersection(
                 Box::new(Ast::Equal {
                     fname: "field".to_owned(),
-                    fvalue: Some(Value::Number(42.0)),
+                    fvalue: Some(Value::Number(OrderedFloat(42.0))),
                     negate: false
                 }),
                 Box::new(Ast::Intersection(
@@ -1028,7 +1030,7 @@ mod tests {
                 Box::new(Ast::Union(
                     Box::new(Ast::Equal {
                         fname: "field".to_owned(),
-                        fvalue: Some(Value::Number(42.0)),
+                        fvalue: Some(Value::Number(OrderedFloat(42.0))),
                         negate: false
                     }),
                     Box::new(Ast::Equal {

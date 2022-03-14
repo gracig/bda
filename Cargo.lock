@@ -141,6 +141,7 @@ dependencies = [
  "bdaproto",
  "bdaql",
  "mockall",
+ "ordered-float",
  "ppom",
  "prost-types 0.9.0",
  "serde",
@@ -177,6 +178,10 @@ version = "0.1.0"
 [[package]]
 name = "bdaindex"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "bdaproto"
@@ -199,6 +204,9 @@ dependencies = [
 [[package]]
 name = "bdaql"
 version = "0.1.0"
+dependencies = [
+ "ordered-float",
+]
 
 [[package]]
 name = "bdaweb"
@@ -1066,6 +1074,15 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "ordered-float"
+version = "2.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7940cf2ca942593318d07fcf2596cdca60a85c9e7fab408a5e21a4f9dcd40d87"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]
