@@ -1,7 +1,7 @@
 use std::iter::Peekable;
 
-use super::ast::*;
 use super::scanner::*;
+use super::{Ast, Value};
 
 #[derive(Debug, PartialEq, Clone)]
 enum Step {
