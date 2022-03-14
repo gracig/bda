@@ -681,7 +681,7 @@ mod test_super {
     use serde_json::{self, json};
     fn create_entity_a() -> Entity {
         Entity::Resource(
-            "a".to_owned(),
+            EntityID::ResourceID("a".to_owned()),
             serde_json::from_value(json!({
                 "name": "name",
                 "description": "a description",
@@ -719,7 +719,7 @@ mod test_super {
     }
     fn create_entity_b() -> Entity {
         Entity::Resource(
-            "b".to_owned(), //id has changed from a
+            EntityID::ResourceID("b".to_owned()), //id has changed from a
             serde_json::from_value(json!({
                 "name": "nameb", //name has changed from a
                 "description": "another description", //description has changed from a
@@ -757,7 +757,7 @@ mod test_super {
     }
     fn create_entity_c() -> Entity {
         Entity::Resource(
-            "c".to_owned(), //id has changed from a
+            EntityID::ResourceID("c".to_owned()), //id has changed from a
             serde_json::from_value(json!({
                 "name": "namec", //name has changed from a and b
                 "description": "another description", //description has changed from a

@@ -3,7 +3,7 @@ pub mod datastore;
 pub mod query;
 
 // Imports
-use crate::data::query::Query;
+use crate::{data::query::Query, logic};
 use bdaproto::Resource;
 use bdaql::Value;
 #[cfg(test)]
@@ -44,7 +44,7 @@ impl EntityID {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub enum Entity {
-    Resource(String, Resource),
+    Resource(EntityID, Resource),
 }
 impl Entity {
     pub fn to_kind(&self) -> EntityKind {
@@ -54,7 +54,7 @@ impl Entity {
     }
     pub fn id(&self) -> EntityID {
         match self {
-            Entity::Resource(id, _) => EntityID::ResourceID(id.clone()),
+            Entity::Resource(id, _) => id.clone(),
         }
     }
 }
@@ -74,7 +74,7 @@ impl Data {
         Data { datastore }
     }
 
-    pub fn get<'a>(&self, id: &'a EntityID) -> Result<Option<Entity>, String> {
+    fn get<'a>(&self, id: &'a EntityID) -> Result<Option<Entity>, String> {
         self.datastore.get(id)
     }
 
@@ -87,25 +87,41 @@ impl Data {
             })?)),
         }
     }
-    pub fn put<'a>(&self, new: &Entity) -> Result<Option<Op>, String> {
+    fn put<'a>(&self, new: &Entity) -> Result<Option<Op>, String> {
         match new {
-            Entity::Resource(id, _) => {
-                match self.datastore.get(&EntityID::ResourceID(id.clone()))? {
-                    None => Ok(Some(self.datastore.set(Op::Create { new: new.clone() })?)),
-                    Some(old) => {
-                        if *new == old {
-                            Ok(None)
-                        } else {
-                            Ok(Some(self.datastore.set(Op::Update {
-                                new: new.clone(),
-                                old,
-                            })?))
-                        }
+            Entity::Resource(id, _) => match self.datastore.get(id)? {
+                None => Ok(Some(self.datastore.set(Op::Create { new: new.clone() })?)),
+                Some(old) => {
+                    if *new == old {
+                        Ok(None)
+                    } else {
+                        Ok(Some(self.datastore.set(Op::Update {
+                            new: new.clone(),
+                            old,
+                        })?))
                     }
                 }
-            }
+            },
         }
     }
+
+    pub fn get_resource<'a>(&self, id: &'a EntityID) -> Result<Option<Resource>, String> {
+        self.get(id).map(|oe| {
+            oe.map(|entity| match entity {
+                Entity::Resource(_, r) => r,
+            })
+        })
+    }
+
+    pub fn put_resource<'a>(&self, r: &Resource) -> Result<Option<Op>, String> {
+        let mut validated = r.to_owned();
+        logic::defaults(&mut validated);
+        self.put(&Entity::Resource(
+            logic::resource_id(&validated)?,
+            validated,
+        ))
+    }
+
     pub fn search<'a>(
         &self,
         query: &'a Query,
@@ -246,7 +262,7 @@ mod test_super {
     #[test]
     fn test_data_put_new() {
         let id = EntityID::ResourceID("an id".to_owned());
-        let entity = Entity::Resource("an id".to_owned(), logic::new_resource_function("name"));
+        let entity = Entity::Resource(id.clone(), logic::new_resource_function("name"));
         let op = Op::Create {
             new: entity.clone(),
         };
@@ -265,7 +281,7 @@ mod test_super {
     #[test]
     fn test_data_put_same() {
         let id = EntityID::ResourceID("an id".to_owned());
-        let entity = Entity::Resource("an id".to_owned(), logic::new_resource_function("name"));
+        let entity = Entity::Resource(id.clone(), logic::new_resource_function("name"));
         let get_entity = entity.clone();
         let get_return = Some(get_entity);
         let mut mock = MockDatastore::new();
@@ -280,7 +296,7 @@ mod test_super {
     #[test]
     fn test_data_put_change() {
         let id = EntityID::ResourceID("an id".to_owned());
-        let entity = Entity::Resource("an id".to_owned(), logic::new_resource_function("name"));
+        let entity = Entity::Resource(id.clone(), logic::new_resource_function("name"));
         let mut get_entity = entity.clone();
         let Entity::Resource(_, ref mut r) = get_entity;
         r.description = "last description".to_owned();
@@ -304,7 +320,7 @@ mod test_super {
     #[test]
     fn test_data_del_existent() {
         let id = EntityID::ResourceID("an id".to_owned());
-        let entity = Entity::Resource("an id".to_owned(), logic::new_resource_function("name"));
+        let entity = Entity::Resource(id.clone(), logic::new_resource_function("name"));
         let get_return = Some(entity.clone());
         let op = Op::Delete {
             id: id.clone(),

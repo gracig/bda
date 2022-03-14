@@ -1,6 +1,6 @@
 use bdacore::data::datastore::mem::MemDatastore;
 use bdacore::data::query::Query;
-use bdacore::data::{self, Entity, EntityID, EntityKind};
+use bdacore::data::{self, EntityKind};
 use bdacore::{self, logic};
 use bdaproto::bda_server::Bda;
 use bdaproto::{
@@ -122,11 +122,8 @@ impl Bda for BDADatastoreService {
         request: tonic::Request<GetResourceRequest>,
     ) -> Result<tonic::Response<Resource>, tonic::Status> {
         logic::resource_id_from_get_request(request.get_ref())
-            .and_then(|id| Ok((id.clone(), self.data.get(&EntityID::ResourceID(id)))))
-            .and_then(|(id, entity)| match entity {
-                Ok(Some(Entity::Resource(_, r))) => Ok(r),
-                _ => Err(format!("entity not found: {}", id)),
-            })
+            .and_then(|ref id| self.data.get_resource(id))
+            .and_then(|r| r.ok_or(Err(format!("entity not found: {:?}", request.get_ref()))?))
             .and_then(|r| Ok(Response::new(r)))
             .map_err(|e| tonic::Status::internal(e.to_string()))
     }
@@ -136,7 +133,7 @@ impl Bda for BDADatastoreService {
         request: tonic::Request<DelResourceRequest>,
     ) -> Result<tonic::Response<DelResourceResponse>, tonic::Status> {
         logic::resource_id_from_del_request(request.get_ref())
-            .and_then(|id| self.data.del(&EntityID::ResourceID(id)))
+            .and_then(|id| self.data.del(&id))
             .and_then(|op| {
                 if let Some(bdacore::data::Op::Delete { .. }) = op {
                     Ok(1)
@@ -157,8 +154,7 @@ impl Bda for BDADatastoreService {
             .resource
             .as_ref()
             .ok_or_else(|| "put request resource not defined".to_string())
-            .and_then(|r| Ok(Entity::Resource(logic::resource_id(r)?, r.to_owned())))
-            .and_then(|ref entity| self.data.put(entity))
+            .and_then(|r| self.data.put_resource(r))
             .and_then(|x| match x {
                 Some(bdacore::data::Op::Create { .. }) => Ok(1),
                 Some(bdacore::data::Op::Update { .. }) => Ok(1),

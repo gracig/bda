@@ -1,7 +1,6 @@
 {
   "name": "nameb",
   "description": "another description",
-  "namespace": "namespace",
   "tags": ["a", "b", "c", "d", "e"],
   "attributes": {
     "key1": "value1",

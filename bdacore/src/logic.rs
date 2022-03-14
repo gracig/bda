@@ -1,6 +1,11 @@
+use std::error::Error;
+use std::fmt;
+
 use bdaproto::resource::ResourceKind;
 use bdaproto::runtime::RuntimeKind;
 use bdaproto::{Container, DelResourceRequest, Function, GetResourceRequest, Resource, Runtime};
+
+use crate::data::EntityID;
 
 const FUNCTION_KIND: &str = "function";
 const RUNTIME_CONTAINER_KIND: &str = "runtime.container";
@@ -8,6 +13,28 @@ const KINDS: [&str; 2] = [FUNCTION_KIND, RUNTIME_CONTAINER_KIND];
 pub const DEFAULT_NAMESPACE: &str = "default";
 pub const DEFAULT_VERSION: &str = "latest";
 pub const DEFAULT_DOCKERFILE: &str = "Dockerfile";
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BdaError {
+    pub details: String,
+}
+impl BdaError {
+    pub fn new(msg: &str) -> Self {
+        Self {
+            details: msg.to_string(),
+        }
+    }
+}
+impl fmt::Display for BdaError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.details)
+    }
+}
+impl Error for BdaError {
+    fn description(&self) -> &str {
+        &self.details
+    }
+}
 
 pub fn new_resource_runtime_container(name: &str) -> Resource {
     new_resource(
@@ -92,18 +119,21 @@ pub fn resource_id_builder(
     namespace: &str,
     kind: &str,
     name: &str,
-) -> Result<String, String> {
-    Ok(format!("/{}/{}/{}/{}", version, namespace, kind, name))
+) -> Result<EntityID, String> {
+    Ok(EntityID::ResourceID(format!(
+        "/{}/{}/{}/{}",
+        version, namespace, kind, name
+    )))
 }
 
-pub fn resource_id_from_get_request(r: &GetResourceRequest) -> Result<String, String> {
+pub fn resource_id_from_get_request(r: &GetResourceRequest) -> Result<EntityID, String> {
     return resource_id_builder(&r.version, &r.namespace, &r.kind, &r.name);
 }
-pub fn resource_id_from_del_request(r: &DelResourceRequest) -> Result<String, String> {
+pub fn resource_id_from_del_request(r: &DelResourceRequest) -> Result<EntityID, String> {
     return resource_id_builder(&r.version, &r.namespace, &r.kind, &r.name);
 }
 
-pub fn resource_id(r: &Resource) -> Result<String, String> {
+pub fn resource_id(r: &Resource) -> Result<EntityID, String> {
     return resource_id_builder(
         &r.version,
         &r.namespace,

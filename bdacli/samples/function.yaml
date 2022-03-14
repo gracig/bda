@@ -1,0 +1,85 @@
+---
+name: namea
+description: another description,
+tags:
+  - a
+  - b
+  - c
+  - d
+  - e
+attributes:
+  key1: value1
+  key2: value2
+  key3:
+    - val3a
+    - val3b
+    - val3c
+function:
+  inputs:
+    - name: param1
+      description: param1 description
+      parameterKind: NUMBER
+      defaultValue: 6
+    - name: param2
+      description: param2 description
+      parameterKind: TEXT
+      defaultValue: a text
+    - name: param3
+      description: param3 description
+      parameterKind: PATH
+      defaultValue: /path/to/dir
+    - name: param4
+      description: param4 description
+      parameterKind: GENERIC
+      defaultValue: generic
+  outputs: []
+  baseCommand:
+    - echo
+    - hello
+    - world
+  runtimeCapabilities:
+    - ls
+    - cmd
+
+---
+name: nameb
+description: another description,
+tags:
+  - a
+  - b
+  - c
+  - d
+  - e
+attributes:
+  key1: value1
+  key2: value2
+  key3:
+    - val3a
+    - val3b
+    - val3c
+function:
+  inputs:
+    - name: param1
+      description: param1 description
+      parameterKind: NUMBER
+      defaultValue: 6
+    - name: param2
+      description: param2 description
+      parameterKind: TEXT
+      defaultValue: a text
+    - name: param3
+      description: param3 description
+      parameterKind: PATH
+      defaultValue: /path/to/dir
+    - name: param4
+      description: param4 description
+      parameterKind: GENERIC
+      defaultValue: generic
+  outputs: []
+  baseCommand:
+    - echo
+    - hello
+    - world
+  runtimeCapabilities:
+    - ls
+    - cmd

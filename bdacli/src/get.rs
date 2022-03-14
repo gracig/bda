@@ -1,3 +1,4 @@
+use bdacore::logic;
 use bdaproto::{bda_client::BdaClient, GetResourcesRequest, Resource};
 use clap::Args;
 use std::error::Error;
@@ -29,8 +30,7 @@ pub async fn cmd(
     }
     let request = Request::new(get_resources_request_from_get_cfg(cfg));
     let response = client.get_resources(request).await?;
-    show(&response.get_ref().resources);
-    Ok(())
+    show(&response.get_ref().resources)
 }
 
 fn get_resources_request_from_get_cfg(cfg: &crate::get::Config) -> GetResourcesRequest {
@@ -43,6 +43,9 @@ fn get_resources_request_from_get_cfg(cfg: &crate::get::Config) -> GetResourcesR
     }
 }
 
-fn show(rs: &Vec<Resource>) {
-    println!("{:#?}", rs)
+fn show(rs: &Vec<Resource>) -> Result<(), Box<dyn Error>> {
+    for r in rs.iter() {
+        println!("{:?}", logic::resource_id(r)?)
+    }
+    Ok(())
 }
