@@ -4,7 +4,6 @@ package bda;
 option go_package = "./;pb";
 
 import "google/protobuf/struct.proto";
-
 /*
     Status of Development:
     - Function Resource : WIP
