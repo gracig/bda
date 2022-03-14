@@ -1,37 +1,15 @@
-use bdacli::datastore;
-use bdaproto::bda_client::BdaClient;
-use clap::{Args, Parser, Subcommand};
+use bdacli::{self, apply, get, show, Command};
+use clap::Parser;
 use std::error::Error;
-use tonic::transport::Endpoint;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let cfg = Config::parse();
+    let ref cfg = bdacli::Config::parse();
+    let mut client = bdacli::connect(&cfg.datastore_conn).await?;
     match cfg.command {
-        Command::Datastore(cfg) => {
-            eprintln!("Connecting to datastore on {:?}", cfg.endpoint.uri());
-            let mut client = BdaClient::connect(cfg.endpoint).await?;
-            datastore::print_kinds(&mut client).await?;
-        }
+        Command::Get(ref cfg) => get::cmd(&mut client, cfg).await?,
+        Command::Show(ref cfg) => show::cmd(&mut client, cfg).await?,
+        Command::Apply(ref cfg) => apply::cmd(&mut client, cfg).await?,
     }
     Ok(())
-}
-
-#[derive(Debug, Parser)]
-#[clap(author, version, about, long_about = None)]
-struct Config {
-    #[clap(subcommand)]
-    command: Command,
-}
-
-#[derive(Subcommand, Debug)]
-enum Command {
-    #[clap(author, version, about, long_about = None)]
-    Datastore(DatastoreConfig),
-}
-#[derive(Args, Debug)]
-#[clap(author, version, about, long_about = None)]
-struct DatastoreConfig {
-    #[clap(short, long, default_value = "http://127.0.0.1:7000")]
-    endpoint: Endpoint,
 }
