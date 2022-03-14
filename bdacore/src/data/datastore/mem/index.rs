@@ -1,4 +1,4 @@
-use crate::model::data::{Entity, EntityID, EntityKind};
+use crate::data::{Entity, EntityID, EntityKind};
 use bdaql::{Ast, Value};
 use ppom::mdb::{Iter, OMap};
 use std::ops::RangeBounds;
@@ -125,6 +125,21 @@ impl Index {
                 }
             }
         }
+    }
+
+    pub fn values(
+        &self,
+        kind: &EntityKind,
+        field: &str,
+    ) -> Box<dyn Iterator<Item = Option<Value>>> {
+        Box::new(ValueIter {
+            iter: self
+                .value_index
+                .get(&(kind.to_owned(), field.to_string()))
+                .ok()
+                .and_then(|x| Some(x.0.iter()))
+                .and_then(|r| r.ok()),
+        })
     }
 
     pub fn with_kind(&self, kind: &EntityKind) -> Box<dyn Iterator<Item = EntityID>> {
@@ -581,6 +596,18 @@ impl Iterator for EntityIDSetOperationIter {
         }
     }
 }
+
+pub struct ValueIter {
+    iter: Option<Iter<Option<Value>, EntitySet>>,
+}
+
+impl Iterator for ValueIter {
+    type Item = Option<Value>;
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(self.iter.as_mut()?.next()?.0)
+    }
+}
+
 pub struct EntityIDIter {
     iter: Option<Iter<EntityID, bool>>,
 }
@@ -778,6 +805,21 @@ mod test_super {
             ),
             false
         );
+    }
+
+    #[test]
+    fn test_values() {
+        let ref a = create_entity_a();
+        let ref b = create_entity_b();
+        let ref c = create_entity_c();
+        let index = create_index(vec![a, b, c]);
+        let mut iter = index.values(&a.to_kind(), ".tags");
+        assert_eq!(iter.next(), Some(Some(Value::Text("a".to_string()))));
+        assert_eq!(iter.next(), Some(Some(Value::Text("b".to_string()))));
+        assert_eq!(iter.next(), Some(Some(Value::Text("c".to_string()))));
+        assert_eq!(iter.next(), Some(Some(Value::Text("d".to_string()))));
+        assert_eq!(iter.next(), Some(Some(Value::Text("e".to_string()))));
+        assert_eq!(iter.next(), None);
     }
 
     #[test]

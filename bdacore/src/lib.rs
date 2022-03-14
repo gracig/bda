@@ -1,5 +1,3 @@
-pub mod model {
-    pub mod data;
-    pub mod factory;
-    pub mod logic;
-}
+pub mod data;
+pub mod logic;
+pub mod model;

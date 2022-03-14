@@ -3,20 +3,26 @@ pub mod datastore;
 pub mod query;
 
 // Imports
-use self::query::Query;
+use crate::data::query::Query;
 use bdaproto::Resource;
+use bdaql::Value;
 #[cfg(test)]
 use mockall::{automock, predicate::*};
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 
 #[cfg_attr(test, automock)]
 pub trait Datastore {
     fn get<'a>(&self, id: &'a EntityID) -> Result<Option<Entity>, String>;
     fn set(&self, action: Op) -> Result<Op, String>;
     fn search<'a>(&self, query: &'a Query) -> Result<Box<dyn Iterator<Item = EntityID>>, String>;
+    fn values<'a>(
+        &self,
+        kind: &'a EntityKind,
+        field: &'a str,
+    ) -> Result<Box<dyn Iterator<Item = Option<Value>>>, String>;
 }
 
-pub fn new<'d, D: Datastore>(datastore: &'d D) -> Data<'d> {
+pub fn new(datastore: Arc<dyn Datastore + Sync + Send>) -> Data {
     Data::new(datastore)
 }
 
@@ -59,14 +65,19 @@ pub enum Op {
     Update { new: Entity, old: Entity },
     Delete { id: EntityID, old: Entity },
 }
-pub struct Data<'a> {
-    datastore: &'a dyn Datastore,
+pub struct Data {
+    datastore: Arc<dyn Datastore + Sync + Send + 'static>,
 }
 
-impl<'d> Data<'d> {
-    pub fn new<D: Datastore>(datastore: &'d D) -> Data<'d> {
+impl Data {
+    pub fn new(datastore: Arc<dyn Datastore + Sync + Send>) -> Data {
         Data { datastore }
     }
+
+    pub fn get<'a>(&self, id: &'a EntityID) -> Result<Option<Entity>, String> {
+        self.datastore.get(id)
+    }
+
     pub fn del<'a>(&self, id: &'a EntityID) -> Result<Option<Op>, String> {
         match self.datastore.get(id)? {
             None => Ok(None),
@@ -101,13 +112,111 @@ impl<'d> Data<'d> {
     ) -> Result<Box<dyn Iterator<Item = EntityID>>, String> {
         self.datastore.search(query)
     }
+
+    pub fn ids<'a>(&self, query: &'a Query) -> Result<Vec<EntityID>, String> {
+        Ok(self.search(query)?.collect())
+    }
+
+    pub fn entities<'a>(&self, query: &'a Query) -> Result<Vec<Entity>, String> {
+        Ok(self
+            .search(query)?
+            .filter_map(|ref id| self.datastore.get(id).ok()?)
+            .collect())
+    }
+
+    pub fn resources<'a>(&self, query: &'a Query) -> Result<Vec<Resource>, String> {
+        match query.kind {
+            EntityKind::Resource => Ok(self
+                .search(query)?
+                .filter_map(|ref id| self.datastore.get(id).ok()?)
+                .map(|Entity::Resource(_, r)| r)
+                .collect()),
+        }
+    }
+
+    pub fn values<'a>(
+        &self,
+        kind: &'a EntityKind,
+        field: &'a str,
+    ) -> Result<Box<dyn Iterator<Item = Option<Value>>>, String> {
+        self.datastore.values(kind, field)
+    }
+
+    pub fn values_as_string<'a>(
+        &self,
+        kind: &'a EntityKind,
+        field: &'a str,
+    ) -> Result<Box<dyn Iterator<Item = String>>, String> {
+        let iter = self
+            .datastore
+            .values(kind, field)?
+            .filter_map(|ov| match ov {
+                Some(v) => match v {
+                    Value::Number(vv) => Some(vv.to_string()),
+                    Value::Text(vv) => Some(vv),
+                    Value::Boolean(vv) => Some(vv.to_string()),
+                },
+                None => None,
+            });
+        Ok(Box::new(iter))
+    }
+
+    pub fn values_as_number<'a>(
+        &self,
+        kind: &'a EntityKind,
+        field: &'a str,
+    ) -> Result<Box<dyn Iterator<Item = f64>>, String> {
+        let iter = self
+            .datastore
+            .values(kind, field)?
+            .filter_map(|ov| match ov {
+                Some(v) => match v {
+                    Value::Number(vv) => Some(vv),
+                    Value::Text(vv) => vv.parse::<f64>().ok(),
+                    Value::Boolean(vv) => {
+                        if vv {
+                            Some(1.0)
+                        } else {
+                            Some(0.0)
+                        }
+                    }
+                },
+                None => None,
+            });
+        Ok(Box::new(iter))
+    }
+
+    pub fn values_as_bool<'a>(
+        &self,
+        kind: &'a EntityKind,
+        field: &'a str,
+    ) -> Result<Box<dyn Iterator<Item = bool>>, String> {
+        let iter = self
+            .datastore
+            .values(kind, field)?
+            .filter_map(|ov| match ov {
+                Some(v) => match v {
+                    Value::Number(vv) => {
+                        if vv == 0.0 || f64::is_nan(vv) {
+                            Some(false)
+                        } else {
+                            Some(true)
+                        }
+                    }
+                    Value::Text(vv) => vv.parse::<bool>().ok(),
+                    Value::Boolean(vv) => Some(vv),
+                },
+                None => None,
+            });
+        Ok(Box::new(iter))
+    }
 }
 
 #[cfg(test)]
 mod test_super {
     use bdaql::Ast;
 
-    use crate::model::factory;
+    use crate::model;
 
     use super::*;
 
@@ -128,7 +237,7 @@ mod test_super {
             .with(eq(q.clone()))
             .times(1)
             .returning(move |_| Ok(Box::new(search_set.clone())));
-        let data = new(&mock);
+        let data = new(Arc::new(mock));
         let mut answer = data.search(&q).unwrap();
         assert_eq!(set.next(), answer.next());
         assert_ne!(set.next(), answer.next());
@@ -138,7 +247,7 @@ mod test_super {
     #[test]
     fn test_data_put_new() {
         let id = EntityID::ResourceID("an id".to_owned());
-        let entity = Entity::Resource("an id".to_owned(), factory::new_resource_function("name"));
+        let entity = Entity::Resource("an id".to_owned(), model::new_resource_function("name"));
         let op = Op::Create {
             new: entity.clone(),
         };
@@ -151,13 +260,13 @@ mod test_super {
             .with(eq(op.clone()))
             .times(1)
             .returning(|op| Ok(op));
-        let data = new(&mock);
+        let data = new(Arc::new(mock));
         assert_eq!(Some(op), data.put(&entity).unwrap());
     }
     #[test]
     fn test_data_put_same() {
         let id = EntityID::ResourceID("an id".to_owned());
-        let entity = Entity::Resource("an id".to_owned(), factory::new_resource_function("name"));
+        let entity = Entity::Resource("an id".to_owned(), model::new_resource_function("name"));
         let get_entity = entity.clone();
         let get_return = Some(get_entity);
         let mut mock = MockDatastore::new();
@@ -166,13 +275,13 @@ mod test_super {
             .times(1)
             .returning(move |_| Ok(get_return.clone()));
         mock.expect_set().times(0);
-        let data = new(&mock);
+        let data = new(Arc::new(mock));
         assert_eq!(None, data.put(&entity).unwrap());
     }
     #[test]
     fn test_data_put_change() {
         let id = EntityID::ResourceID("an id".to_owned());
-        let entity = Entity::Resource("an id".to_owned(), factory::new_resource_function("name"));
+        let entity = Entity::Resource("an id".to_owned(), model::new_resource_function("name"));
         let mut get_entity = entity.clone();
         let Entity::Resource(_, ref mut r) = get_entity;
         r.description = "last description".to_owned();
@@ -190,13 +299,13 @@ mod test_super {
             .with(eq(op.clone()))
             .times(1)
             .returning(|op| Ok(op));
-        let data = new(&mock);
+        let data = new(Arc::new(mock));
         assert_eq!(Some(op), data.put(&entity).unwrap());
     }
     #[test]
     fn test_data_del_existent() {
         let id = EntityID::ResourceID("an id".to_owned());
-        let entity = Entity::Resource("an id".to_owned(), factory::new_resource_function("name"));
+        let entity = Entity::Resource("an id".to_owned(), model::new_resource_function("name"));
         let get_return = Some(entity.clone());
         let op = Op::Delete {
             id: id.clone(),
@@ -211,7 +320,7 @@ mod test_super {
             .with(eq(op.clone()))
             .times(1)
             .returning(|op| Ok(op));
-        let data = new(&mock);
+        let data = new(Arc::new(mock));
         assert_eq!(Some(op), data.del(&id).unwrap());
     }
 }

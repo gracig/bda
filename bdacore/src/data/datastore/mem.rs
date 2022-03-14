@@ -1,7 +1,7 @@
 pub mod index;
 pub mod kvstore;
 
-use crate::model::data::*;
+use crate::data::*;
 
 pub struct MemDatastore {
     kvstore: kvstore::KvStore,
@@ -45,5 +45,13 @@ impl Datastore for MemDatastore {
     }
     fn search<'a>(&self, query: &'a Query) -> Result<Box<dyn Iterator<Item = EntityID>>, String> {
         Ok(self.index.search(&query.kind, Box::new(query.ast.clone())))
+    }
+
+    fn values<'a>(
+        &self,
+        kind: &'a EntityKind,
+        field: &'a str,
+    ) -> Result<Box<dyn Iterator<Item = Option<Value>>>, String> {
+        Ok(self.index.values(kind, field))
     }
 }

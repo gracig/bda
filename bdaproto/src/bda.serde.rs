@@ -610,14 +610,8 @@ impl serde::Serialize for GetKindsRequest {
         S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
-        let mut len = 0;
-        if self.ph {
-            len += 1;
-        }
-        let mut struct_ser = serializer.serialize_struct("bda.GetKindsRequest", len)?;
-        if self.ph {
-            struct_ser.serialize_field("ph", &self.ph)?;
-        }
+        let len = 0;
+        let struct_ser = serializer.serialize_struct("bda.GetKindsRequest", len)?;
         struct_ser.end()
     }
 }
@@ -628,12 +622,10 @@ impl<'de> serde::Deserialize<'de> for GetKindsRequest {
         D: serde::Deserializer<'de>,
     {
         const FIELDS: &[&str] = &[
-            "ph",
         ];
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
-            Ph,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
@@ -653,10 +645,7 @@ impl<'de> serde::Deserialize<'de> for GetKindsRequest {
                     where
                         E: serde::de::Error,
                     {
-                        match value {
-                            "ph" => Ok(GeneratedField::Ph),
-                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
-                        }
+                        Err(serde::de::Error::unknown_field(value, FIELDS))
                     }
                 }
                 deserializer.deserialize_identifier(GeneratedVisitor)
@@ -674,19 +663,8 @@ impl<'de> serde::Deserialize<'de> for GetKindsRequest {
                 where
                     V: serde::de::MapAccess<'de>,
             {
-                let mut ph = None;
-                while let Some(k) = map.next_key()? {
-                    match k {
-                        GeneratedField::Ph => {
-                            if ph.is_some() {
-                                return Err(serde::de::Error::duplicate_field("ph"));
-                            }
-                            ph = Some(map.next_value()?);
-                        }
-                    }
-                }
+                while map.next_key::<GeneratedField>()?.is_some() {}
                 Ok(GetKindsRequest {
-                    ph: ph.unwrap_or_default(),
                 })
             }
         }
@@ -790,14 +768,8 @@ impl serde::Serialize for GetNamespacesRequest {
         S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
-        let mut len = 0;
-        if self.ph {
-            len += 1;
-        }
-        let mut struct_ser = serializer.serialize_struct("bda.GetNamespacesRequest", len)?;
-        if self.ph {
-            struct_ser.serialize_field("ph", &self.ph)?;
-        }
+        let len = 0;
+        let struct_ser = serializer.serialize_struct("bda.GetNamespacesRequest", len)?;
         struct_ser.end()
     }
 }
@@ -808,12 +780,10 @@ impl<'de> serde::Deserialize<'de> for GetNamespacesRequest {
         D: serde::Deserializer<'de>,
     {
         const FIELDS: &[&str] = &[
-            "ph",
         ];
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
-            Ph,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
@@ -833,10 +803,7 @@ impl<'de> serde::Deserialize<'de> for GetNamespacesRequest {
                     where
                         E: serde::de::Error,
                     {
-                        match value {
-                            "ph" => Ok(GeneratedField::Ph),
-                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
-                        }
+                        Err(serde::de::Error::unknown_field(value, FIELDS))
                     }
                 }
                 deserializer.deserialize_identifier(GeneratedVisitor)
@@ -854,19 +821,8 @@ impl<'de> serde::Deserialize<'de> for GetNamespacesRequest {
                 where
                     V: serde::de::MapAccess<'de>,
             {
-                let mut ph = None;
-                while let Some(k) = map.next_key()? {
-                    match k {
-                        GeneratedField::Ph => {
-                            if ph.is_some() {
-                                return Err(serde::de::Error::duplicate_field("ph"));
-                            }
-                            ph = Some(map.next_value()?);
-                        }
-                    }
-                }
+                while map.next_key::<GeneratedField>()?.is_some() {}
                 Ok(GetNamespacesRequest {
-                    ph: ph.unwrap_or_default(),
                 })
             }
         }
@@ -1342,14 +1298,8 @@ impl serde::Serialize for GetRevisionsRequest {
         S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
-        let mut len = 0;
-        if self.ph {
-            len += 1;
-        }
-        let mut struct_ser = serializer.serialize_struct("bda.GetRevisionsRequest", len)?;
-        if self.ph {
-            struct_ser.serialize_field("ph", &self.ph)?;
-        }
+        let len = 0;
+        let struct_ser = serializer.serialize_struct("bda.GetRevisionsRequest", len)?;
         struct_ser.end()
     }
 }
@@ -1360,12 +1310,10 @@ impl<'de> serde::Deserialize<'de> for GetRevisionsRequest {
         D: serde::Deserializer<'de>,
     {
         const FIELDS: &[&str] = &[
-            "ph",
         ];
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
-            Ph,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
@@ -1385,10 +1333,7 @@ impl<'de> serde::Deserialize<'de> for GetRevisionsRequest {
                     where
                         E: serde::de::Error,
                     {
-                        match value {
-                            "ph" => Ok(GeneratedField::Ph),
-                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
-                        }
+                        Err(serde::de::Error::unknown_field(value, FIELDS))
                     }
                 }
                 deserializer.deserialize_identifier(GeneratedVisitor)
@@ -1406,19 +1351,8 @@ impl<'de> serde::Deserialize<'de> for GetRevisionsRequest {
                 where
                     V: serde::de::MapAccess<'de>,
             {
-                let mut ph = None;
-                while let Some(k) = map.next_key()? {
-                    match k {
-                        GeneratedField::Ph => {
-                            if ph.is_some() {
-                                return Err(serde::de::Error::duplicate_field("ph"));
-                            }
-                            ph = Some(map.next_value()?);
-                        }
-                    }
-                }
+                while map.next_key::<GeneratedField>()?.is_some() {}
                 Ok(GetRevisionsRequest {
-                    ph: ph.unwrap_or_default(),
                 })
             }
         }

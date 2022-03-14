@@ -86,20 +86,11 @@ pub struct Container {
     pub dockerfile: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetRevisionsRequest {
-    #[prost(bool, tag = "100")]
-    pub ph: bool,
-}
+pub struct GetRevisionsRequest {}
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetNamespacesRequest {
-    #[prost(bool, tag = "100")]
-    pub ph: bool,
-}
+pub struct GetNamespacesRequest {}
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetKindsRequest {
-    #[prost(bool, tag = "100")]
-    pub ph: bool,
-}
+pub struct GetKindsRequest {}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetResourcesResponse {
     #[prost(message, repeated, tag = "1")]

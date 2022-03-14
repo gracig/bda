@@ -1,4 +1,4 @@
-use crate::model::data::{Entity, EntityID};
+use crate::data::{Entity, EntityID};
 use ppom::mdb::OMap;
 
 pub struct KvStore {

@@ -55,13 +55,10 @@ service BDA {
 }
 
 message GetRevisionsRequest{
-    bool ph = 100;
 }
 message GetNamespacesRequest{
-    bool ph = 100;
 }
 message GetKindsRequest{
-    bool ph = 100;
 }
 
 message GetResourcesResponse{
