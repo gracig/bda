@@ -1,8 +1,7 @@
-use std::ops::RangeBounds;
-
 use crate::model::data::{Entity, EntityID, EntityKind};
 use bdaql::Value;
 use ppom::mdb::{Iter, OMap};
+use std::ops::RangeBounds;
 
 type FieldName = String;
 type EntitySet = OMap<EntityID, bool>;
@@ -73,6 +72,7 @@ impl Index {
             .and_then(|(v_set, _)| v_set.range(range).ok())
             .and_then(|items| {
                 let mut stack: Vec<Box<dyn Iterator<Item = EntityID>>> = vec![];
+                //Not so functional... :-(
                 for (v, id_set) in items {
                     if exclude_value && v == *value_to_exclude {
                     } else {
