@@ -179,6 +179,8 @@ name = "bdaindex"
 version = "0.1.0"
 dependencies = [
  "bdaql",
+ "mockall",
+ "ppom",
  "serde",
  "serde_json",
 ]

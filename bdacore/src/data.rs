@@ -1,14 +1,13 @@
-// Modules
 pub mod datastore;
 pub mod query;
 
-// Imports
 use crate::{data::query::Query, logic};
 use bdaproto::Resource;
 use bdaql::{Rational, Value};
+use std::{fmt::Debug, sync::Arc};
+
 #[cfg(test)]
 use mockall::{automock, predicate::*};
-use std::{fmt::Debug, sync::Arc};
 
 #[cfg_attr(test, automock)]
 pub trait Datastore {

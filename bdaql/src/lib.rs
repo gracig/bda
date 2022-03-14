@@ -23,6 +23,7 @@ pub enum Value {
     Text(String),
     Boolean(bool),
 }
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum Ast {
     Intersection(Box<Ast>, Box<Ast>),
