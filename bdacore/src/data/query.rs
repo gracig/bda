@@ -1,6 +1,6 @@
 use crate::logic;
 use bdaindex::bql;
-use bdaindex::bql::Ast;
+use bdaindex::bql::BQL;
 use bdaproto::{DelResourcesRequest, GetResourcesRequest};
 
 use super::EntityKind;
@@ -8,15 +8,15 @@ use super::EntityKind;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Query {
     pub kind: EntityKind,
-    pub ast: Ast,
+    pub ast: BQL,
 }
 
-pub fn new(kind: EntityKind, ast: Ast) -> Query {
+pub fn new(kind: EntityKind, ast: BQL) -> Query {
     Query::new(kind, ast)
 }
 
 impl Query {
-    pub fn new(kind: EntityKind, ast: Ast) -> Query {
+    pub fn new(kind: EntityKind, ast: BQL) -> Query {
         Query { kind, ast }
     }
     pub fn from_get_resources_request(request: &GetResourcesRequest) -> Result<Query, String> {

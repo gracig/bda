@@ -14,7 +14,7 @@ use std::{
     str::FromStr,
 };
 
-pub fn from_str(s: &str) -> Result<Ast, String> {
+pub fn from_str(s: &str) -> Result<BQL, String> {
     parser::parse(s)
 }
 
@@ -29,47 +29,21 @@ pub enum Value {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub enum Ast {
-    Intersection(Box<Ast>, Box<Ast>),
-    Union(Box<Ast>, Box<Ast>),
-    Difference(Box<Ast>, Box<Ast>),
-    Complement(Box<Ast>, Box<Ast>),
-    All,
-    Equal {
-        field: String,
-        value: Value,
-        negate: bool,
-    },
-    Defined {
-        field: String,
-        negate: bool,
-    },
-    LessThan {
-        field: String,
-        value: Value,
-    },
-    LessThanOrEqual {
-        field: String,
-        value: Value,
-    },
-    GreaterThan {
-        field: String,
-        value: Value,
-    },
-    GreaterThanOrEqual {
-        field: String,
-        value: Value,
-    },
-    ContainsAll {
-        field: String,
-        values: Vec<Value>,
-        negate: bool,
-    },
-    ContainsAny {
-        field: String,
-        values: Vec<Value>,
-        negate: bool,
-    },
+pub enum BQL {
+    And(Box<BQL>, Box<BQL>),
+    Or(Box<BQL>, Box<BQL>),
+    Diff(Box<BQL>, Box<BQL>),
+    Comp(Box<BQL>, Box<BQL>),
+    Not(Box<BQL>),
+    IsPresent,
+    Eq { field: String, value: Value },
+    IsDefined { field: String },
+    LT { field: String, value: Value },
+    LE { field: String, value: Value },
+    GT { field: String, value: Value },
+    GE { field: String, value: Value },
+    All { field: String, values: Vec<Value> },
+    Any { field: String, values: Vec<Value> },
 }
 
 impl Value {
@@ -82,6 +56,67 @@ impl Value {
             },
             JValue::String(vv) => Value::Text(vv),
             _ => Value::Bottom,
+        }
+    }
+}
+
+impl Ord for Value {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self {
+            Value::Text(t) => match other {
+                Value::Text(tt) => t.cmp(tt),
+                Value::Top => Ordering::Less,
+                Value::Boolean(_) => Ordering::Less,
+                Value::Rational(_) => Ordering::Greater,
+                Value::Integral(_) => Ordering::Greater,
+                Value::Bottom => Ordering::Greater,
+            },
+            Value::Boolean(b) => match other {
+                Value::Boolean(bb) => b.cmp(bb),
+                Value::Top => Ordering::Less,
+                Value::Text(_) => Ordering::Greater,
+                Value::Rational(_) => Ordering::Greater,
+                Value::Integral(_) => Ordering::Greater,
+                Value::Bottom => Ordering::Greater,
+            },
+            Value::Integral(n) => match other {
+                Value::Integral(nn) => n.cmp(nn),
+                Value::Rational(nn) if nn.value.is_nan() => Ordering::Greater,
+                Value::Rational(nn) if (*n as f64) > nn.value => Ordering::Greater,
+                Value::Rational(nn) if (*n as f64) < nn.value => Ordering::Less,
+                Value::Rational(_) => Ordering::Equal,
+                Value::Top => Ordering::Less,
+                Value::Text(_) => Ordering::Less,
+                Value::Boolean(_) => Ordering::Less,
+                Value::Bottom => Ordering::Greater,
+            },
+            Value::Rational(n) if n.value.is_nan() => match other {
+                Value::Rational(nn) if nn.value.is_nan() => Ordering::Equal,
+                Value::Bottom => Ordering::Greater,
+                Value::Top => Ordering::Less,
+                _ => Ordering::Less,
+            },
+            Value::Rational(n) => match other {
+                Value::Rational(nn) if nn.value.is_nan() => Ordering::Greater,
+                Value::Rational(nn) if n > nn => Ordering::Greater,
+                Value::Rational(nn) if n < nn => Ordering::Less,
+                Value::Rational(_) => Ordering::Equal,
+                Value::Integral(nn) if n.value > (*nn as f64) => Ordering::Greater,
+                Value::Integral(nn) if n.value < (*nn as f64) => Ordering::Less,
+                Value::Integral(_) => Ordering::Equal,
+                Value::Top => Ordering::Less,
+                Value::Text(_) => Ordering::Less,
+                Value::Boolean(_) => Ordering::Less,
+                Value::Bottom => Ordering::Greater,
+            },
+            Value::Bottom => match other {
+                &Value::Bottom => Ordering::Equal,
+                _ => Ordering::Less,
+            },
+            Value::Top => match other {
+                &Value::Top => Ordering::Equal,
+                _ => Ordering::Greater,
+            },
         }
     }
 }
@@ -233,66 +268,5 @@ impl<'de> Visitor<'de> for NumberVisitor {
         E: de::Error,
     {
         Ok(Rational::from(value))
-    }
-}
-
-impl Ord for Value {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match self {
-            Value::Text(t) => match other {
-                Value::Text(tt) => t.cmp(tt),
-                Value::Bottom => Ordering::Greater,
-                Value::Top => Ordering::Less,
-                Value::Rational(_) => Ordering::Greater,
-                Value::Integral(_) => Ordering::Greater,
-                Value::Boolean(_) => Ordering::Less,
-            },
-            Value::Boolean(b) => match other {
-                Value::Boolean(bb) => b.cmp(bb),
-                Value::Bottom => Ordering::Greater,
-                Value::Top => Ordering::Less,
-                Value::Rational(_) => Ordering::Greater,
-                Value::Text(_) => Ordering::Greater,
-                Value::Integral(_) => Ordering::Greater,
-            },
-            Value::Integral(n) => match other {
-                Value::Integral(nn) => n.cmp(nn),
-                Value::Rational(nn) if nn.value.is_nan() => Ordering::Greater,
-                Value::Rational(nn) if (*n as f64) > nn.value => Ordering::Greater,
-                Value::Rational(nn) if (*n as f64) < nn.value => Ordering::Less,
-                Value::Rational(_) => Ordering::Equal,
-                Value::Bottom => Ordering::Greater,
-                Value::Top => Ordering::Less,
-                Value::Text(_) => Ordering::Less,
-                Value::Boolean(_) => Ordering::Less,
-            },
-            Value::Rational(n) if n.value.is_nan() => match other {
-                Value::Rational(nn) if nn.value.is_nan() => Ordering::Equal,
-                Value::Bottom => Ordering::Greater,
-                Value::Top => Ordering::Less,
-                _ => Ordering::Less,
-            },
-            Value::Rational(n) => match other {
-                Value::Rational(nn) if nn.value.is_nan() => Ordering::Greater,
-                Value::Rational(nn) if n > nn => Ordering::Greater,
-                Value::Rational(nn) if n < nn => Ordering::Less,
-                Value::Rational(_) => Ordering::Equal,
-                Value::Integral(nn) if n.value > (*nn as f64) => Ordering::Greater,
-                Value::Integral(nn) if n.value < (*nn as f64) => Ordering::Less,
-                Value::Integral(_) => Ordering::Equal,
-                Value::Bottom => Ordering::Greater,
-                Value::Top => Ordering::Less,
-                Value::Text(_) => Ordering::Less,
-                Value::Boolean(_) => Ordering::Less,
-            },
-            Value::Bottom => match other {
-                &Value::Bottom => Ordering::Equal,
-                _ => Ordering::Less,
-            },
-            Value::Top => match other {
-                &Value::Top => Ordering::Equal,
-                _ => Ordering::Greater,
-            },
-        }
     }
 }

@@ -2,7 +2,7 @@ pub mod backend;
 pub mod bql;
 pub mod flatserde;
 use backend::{Batch, IndexKey, IndexValue};
-use bql::{Ast, Value};
+use bql::{Value, BQL};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     error::Error,
@@ -40,58 +40,40 @@ impl<T: backend::Backend> Index<T> {
 
     pub fn search(
         &self,
-        ast: Box<Ast>,
+        ast: Box<BQL>,
     ) -> Result<Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>, Box<dyn Error>> {
         match *ast {
-            Ast::Intersection(a, b) => Ok(self.and(self.search(a)?, self.search(b)?)),
-            Ast::Union(a, b) => Ok(self.or(self.search(a)?, self.search(b)?)),
-            Ast::Difference(a, b) => Ok(self.diff(self.search(a)?, self.search(b)?)),
-            Ast::Complement(a, b) => Ok(self.complement(self.search(a)?, self.search(b)?)),
-            Ast::All => self.all(),
-            Ast::Equal {
-                field,
-                value,
-                negate,
-            } => self.is_eq(&field, &value).and_then(|items| {
-                if negate {
-                    Ok(self.diff(self.is_defined(&field)?, items))
-                } else {
-                    Ok(items)
+            BQL::And(a, b) => Ok(self.and(self.search(a)?, self.search(b)?)),
+            BQL::Or(a, b) => Ok(self.or(self.search(a)?, self.search(b)?)),
+            BQL::Diff(a, b) => Ok(self.diff(self.search(a)?, self.search(b)?)),
+            BQL::Comp(a, b) => Ok(self.complement(self.search(a)?, self.search(b)?)),
+            BQL::IsPresent => self.all(),
+            BQL::Eq { field, value } => self.is_eq(&field, &value),
+            BQL::IsDefined { field } => self.is_defined(&field),
+            BQL::LT { field, value } => self.is_less(&field, &value),
+            BQL::LE { field, value } => self.is_less_or_eq(&field, &value),
+            BQL::GT { field, value } => self.is_greater(&field, &value),
+            BQL::GE { field, value } => self.is_greater_or_eq(&field, &value),
+            BQL::All { field, values } => self.contains_all(&field, &values),
+            BQL::Any { field, values } => self.contains_any(&field, &values),
+            BQL::Not(b) => match *b {
+                BQL::And(..)
+                | BQL::Or(..)
+                | BQL::Diff(..)
+                | BQL::Comp(..)
+                | BQL::Not(..)
+                | BQL::IsPresent => Ok(self.diff(self.all()?, self.search(b)?)),
+                BQL::Eq { field: ref f, .. }
+                | BQL::IsDefined { field: ref f, .. }
+                | BQL::LT { field: ref f, .. }
+                | BQL::LE { field: ref f, .. }
+                | BQL::GT { field: ref f, .. }
+                | BQL::GE { field: ref f, .. }
+                | BQL::All { field: ref f, .. }
+                | BQL::Any { field: ref f, .. } => {
+                    Ok(self.diff(self.is_defined(f)?, self.search(b)?))
                 }
-            }),
-            Ast::Defined { field, negate } => self.is_defined(&field).and_then(|items| {
-                if negate {
-                    Ok(self.diff(self.all()?, items))
-                } else {
-                    Ok(items)
-                }
-            }),
-            Ast::LessThan { field, value } => self.is_less(&field, &value),
-            Ast::LessThanOrEqual { field, value } => self.is_less_or_eq(&field, &value),
-            Ast::GreaterThan { field, value } => self.is_greater(&field, &value),
-            Ast::GreaterThanOrEqual { field, value } => self.is_greater_or_eq(&field, &value),
-            Ast::ContainsAll {
-                field,
-                values,
-                negate,
-            } => self.contains_all(&field, &values).and_then(|items| {
-                if negate {
-                    Ok(self.diff(self.all()?, items))
-                } else {
-                    Ok(items)
-                }
-            }),
-            Ast::ContainsAny {
-                field,
-                values,
-                negate,
-            } => self.contains_any(&field, &values).and_then(|items| {
-                if negate {
-                    Ok(self.diff(self.all()?, items))
-                } else {
-                    Ok(items)
-                }
-            }),
+            },
         }
     }
 

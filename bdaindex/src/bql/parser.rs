@@ -1,17 +1,17 @@
 use super::scanner::*;
-use super::{Ast, Rational, Value};
+use super::{Rational, Value, BQL};
 use std::iter::Peekable;
 
 #[derive(Debug, PartialEq, Clone)]
 enum Step {
     Initial,
     Field,
-    InRelation,
-    EqRelation,
-    LtRelation,
-    LteRelation,
-    GtRelation,
-    GteRelation,
+    In,
+    Eq,
+    Lt,
+    Le,
+    Gt,
+    Ge,
     Final,
 }
 
@@ -21,11 +21,11 @@ enum Op {
     ClosePar,
     Or,
     And,
-    Ast(Ast),
+    Not,
+    Ast(BQL),
 }
 
-pub fn parse(s: &str) -> Result<Ast, String> {
-    let mut negate = false;
+pub fn parse(s: &str) -> Result<BQL, String> {
     let mut field: String = String::from("");
     let mut step = Step::Initial;
     let mut nodes: Vec<Op> = Vec::new();
@@ -40,14 +40,7 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 }
                 Token::Not => {
                     it.next();
-                    match scan_ignore_spaces(&mut it) {
-                        Some(Token::Ident(_)) => {
-                            negate = !negate;
-                        }
-                        _ => {
-                            return Err(format!("expected IDENT but got {:?}", tok));
-                        }
-                    }
+                    nodes.push(Op::Not);
                 }
                 Token::Ident(lit) | Token::Text(lit) => {
                     it.next();
@@ -56,12 +49,12 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 }
                 Token::All => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::All));
+                    nodes.push(Op::Ast(BQL::IsPresent));
                     step = Step::Final
                 }
                 _ => {
                     return Err(format!(
-                        "expected IDENT | TEXT | ALL | LTParentheses but got {:?}",
+                        "expected IDENT | TEXT | ALL | LTParentheses | Not but got {:?}",
                         tok
                     ))
                 }
@@ -69,41 +62,40 @@ pub fn parse(s: &str) -> Result<Ast, String> {
             Step::Field => match tok {
                 Token::Not => {
                     it.next();
-                    negate = !negate;
+                    nodes.push(Op::Not);
                 }
                 Token::In => {
                     it.next();
-                    step = Step::InRelation;
+                    step = Step::In;
                 }
                 Token::Eq => {
                     it.next();
-                    step = Step::EqRelation;
+                    step = Step::Eq;
                 }
                 Token::Ne => {
                     it.next();
-                    negate = !negate;
-                    step = Step::EqRelation;
+                    nodes.push(Op::Not);
+                    step = Step::Eq;
                 }
                 Token::Lt => {
                     it.next();
-                    step = Step::LtRelation;
+                    step = Step::Lt;
                 }
-                Token::Lte => {
+                Token::Le => {
                     it.next();
-                    step = Step::LteRelation
+                    step = Step::Le
                 }
                 Token::Gt => {
                     it.next();
-                    step = Step::GtRelation
+                    step = Step::Gt
                 }
-                Token::Gte => {
+                Token::Ge => {
                     it.next();
-                    step = Step::GteRelation
+                    step = Step::Ge
                 }
                 Token::Or | Token::And | Token::Eof | Token::RtParentheses => {
-                    nodes.push(Op::Ast(Ast::Defined {
+                    nodes.push(Op::Ast(BQL::IsDefined {
                         field: field.clone(),
-                        negate: negate,
                     }));
                     step = Step::Final;
                 }
@@ -114,85 +106,77 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                     ))
                 }
             },
-            Step::InRelation => match tok {
+            Step::In => match tok {
                 Token::All => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::ContainsAll {
+                    nodes.push(Op::Ast(BQL::All {
                         field: field.clone(),
                         values: scan_values(&mut it)?,
-                        negate: negate,
                     }));
                     step = Step::Final
                 }
                 Token::Any => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::ContainsAny {
+                    nodes.push(Op::Ast(BQL::Any {
                         field: field.clone(),
                         values: scan_values(&mut it)?,
-                        negate: negate,
                     }));
                     step = Step::Final
                 }
                 _ => return Err(format!("expected ALL|ANY but got {:?}", tok)),
             },
-            Step::EqRelation => match tok {
+            Step::Eq => match tok {
                 Token::Text(t) => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::Equal {
+                    nodes.push(Op::Ast(BQL::Eq {
                         field: field.clone(),
                         value: Value::Text(t),
-                        negate: negate,
                     }));
                     step = Step::Final
                 }
                 Token::Number(n) => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::Equal {
+                    nodes.push(Op::Ast(BQL::Eq {
                         field: field.clone(),
                         value: Value::Rational(Rational::from(n)),
-                        negate: negate,
                     }));
                     step = Step::Final
                 }
                 Token::True => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::Equal {
+                    nodes.push(Op::Ast(BQL::Eq {
                         field: field.clone(),
                         value: Value::Boolean(true),
-                        negate: negate,
                     }));
                     step = Step::Final
                 }
                 Token::False => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::Equal {
+                    nodes.push(Op::Ast(BQL::Eq {
                         field: field.clone(),
                         value: Value::Boolean(false),
-                        negate: negate,
                     }));
                     step = Step::Final
                 }
                 Token::None => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::Equal {
+                    nodes.push(Op::Ast(BQL::Eq {
                         field: field.clone(),
                         value: Value::Bottom,
-                        negate: negate,
                     }));
                     step = Step::Final
                 }
                 Token::Defined => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::Defined {
+                    nodes.push(Op::Ast(BQL::IsDefined {
                         field: field.clone(),
-                        negate: negate,
                     }));
                     step = Step::Final
                 }
                 Token::Not => {
                     it.next();
-                    negate = !negate;
-                    step = Step::EqRelation
+                    nodes.push(Op::Not);
+                    step = Step::Eq
                 }
                 _ => {
                     return Err(format!(
@@ -201,10 +185,10 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                     ))
                 }
             },
-            Step::LtRelation => match tok {
+            Step::Lt => match tok {
                 Token::Text(t) => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::LessThan {
+                    nodes.push(Op::Ast(BQL::LT {
                         field: field.clone(),
                         value: Value::Text(t),
                     }));
@@ -212,7 +196,7 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 }
                 Token::Number(n) => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::LessThan {
+                    nodes.push(Op::Ast(BQL::LT {
                         field: field.clone(),
                         value: Value::Rational(Rational::from(n)),
                     }));
@@ -220,10 +204,10 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 }
                 _ => return Err(format!("expected TEXT|NUMBER but got {:?}", tok)),
             },
-            Step::LteRelation => match tok {
+            Step::Le => match tok {
                 Token::Text(t) => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::LessThanOrEqual {
+                    nodes.push(Op::Ast(BQL::LE {
                         field: field.clone(),
                         value: Value::Text(t),
                     }));
@@ -231,7 +215,7 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 }
                 Token::Number(n) => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::LessThanOrEqual {
+                    nodes.push(Op::Ast(BQL::LE {
                         field: field.clone(),
                         value: Value::Rational(Rational::from(n)),
                     }));
@@ -239,10 +223,10 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 }
                 _ => return Err(format!("expected TEXT|NUMBER but got {:?}", tok)),
             },
-            Step::GtRelation => match tok {
+            Step::Gt => match tok {
                 Token::Text(t) => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::GreaterThan {
+                    nodes.push(Op::Ast(BQL::GT {
                         field: field.clone(),
                         value: Value::Text(t),
                     }));
@@ -250,7 +234,7 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 }
                 Token::Number(n) => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::GreaterThan {
+                    nodes.push(Op::Ast(BQL::GT {
                         field: field.clone(),
                         value: Value::Rational(Rational::from(n)),
                     }));
@@ -258,10 +242,10 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 }
                 _ => return Err(format!("expected TEXT|NUMBER but got {:?}", tok)),
             },
-            Step::GteRelation => match tok {
+            Step::Ge => match tok {
                 Token::Text(t) => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::GreaterThanOrEqual {
+                    nodes.push(Op::Ast(BQL::GE {
                         field: field.clone(),
                         value: Value::Text(t),
                     }));
@@ -269,7 +253,7 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 }
                 Token::Number(n) => {
                     it.next();
-                    nodes.push(Op::Ast(Ast::GreaterThanOrEqual {
+                    nodes.push(Op::Ast(BQL::GE {
                         field: field.clone(),
                         value: Value::Rational(Rational::from(n)),
                     }));
@@ -290,13 +274,11 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 Token::Or => {
                     it.next();
                     nodes.push(Op::Or);
-                    negate = false;
                     step = Step::Initial;
                 }
                 Token::And => {
                     it.next();
                     nodes.push(Op::And);
-                    negate = false;
                     step = Step::Initial;
                 }
                 Token::Eof => {
@@ -315,8 +297,8 @@ pub fn parse(s: &str) -> Result<Ast, String> {
 }
 
 //https://en.wikipedia.org/wiki/Shunting-yard_algorithm
-fn solve_nodes(nodes: &Vec<Op>) -> Result<Ast, String> {
-    let mut ast_stack: Vec<Ast> = Vec::new();
+fn solve_nodes(nodes: &Vec<Op>) -> Result<BQL, String> {
+    let mut ast_stack: Vec<BQL> = Vec::new();
     let mut op_stack: Vec<Op> = Vec::new();
     let mut it = nodes.iter();
     while let Some(op) = it.next() {
@@ -337,12 +319,16 @@ fn solve_nodes(nodes: &Vec<Op>) -> Result<Ast, String> {
                         Op::Or => {
                             let a = ast_stack.pop().ok_or("expected a value")?;
                             let b = ast_stack.pop().ok_or("expected a value")?;
-                            ast_stack.push(Ast::Union(Box::new(a), Box::new(b)));
+                            ast_stack.push(BQL::Or(Box::new(a), Box::new(b)));
                         }
                         Op::And => {
                             let a = ast_stack.pop().ok_or("expected a value")?;
                             let b = ast_stack.pop().ok_or("expected a value")?;
-                            ast_stack.push(Ast::Intersection(Box::new(a), Box::new(b)));
+                            ast_stack.push(BQL::And(Box::new(a), Box::new(b)));
+                        }
+                        Op::Not => {
+                            let a = ast_stack.pop().ok_or("expected a value")?;
+                            ast_stack.push(BQL::Not(Box::new(a)))
                         }
                         Op::Ast(_) => {
                             return Err("not expected an ast".to_owned());
@@ -353,10 +339,14 @@ fn solve_nodes(nodes: &Vec<Op>) -> Result<Ast, String> {
             Op::Or => {
                 while let Some(o) = op_stack.pop() {
                     match o {
+                        Op::Not => {
+                            let a = ast_stack.pop().ok_or("expected a value")?;
+                            ast_stack.push(BQL::Not(Box::new(a)));
+                        }
                         Op::And => {
                             let a = ast_stack.pop().ok_or("expected a value")?;
                             let b = ast_stack.pop().ok_or("expected a value")?;
-                            ast_stack.push(Ast::Intersection(Box::new(a), Box::new(b)));
+                            ast_stack.push(BQL::And(Box::new(a), Box::new(b)));
                         }
                         _ => {
                             op_stack.push(o);
@@ -369,10 +359,14 @@ fn solve_nodes(nodes: &Vec<Op>) -> Result<Ast, String> {
             Op::And => {
                 while let Some(o) = op_stack.pop() {
                     match o {
+                        Op::Not => {
+                            let a = ast_stack.pop().ok_or("expected a value")?;
+                            ast_stack.push(BQL::Not(Box::new(a)));
+                        }
                         Op::And => {
                             let a = ast_stack.pop().ok_or("expected a value")?;
                             let b = ast_stack.pop().ok_or("expected a value")?;
-                            ast_stack.push(Ast::Intersection(Box::new(a), Box::new(b)));
+                            ast_stack.push(BQL::And(Box::new(a), Box::new(b)));
                         }
                         _ => {
                             op_stack.push(o);
@@ -382,6 +376,7 @@ fn solve_nodes(nodes: &Vec<Op>) -> Result<Ast, String> {
                 }
                 op_stack.push(Op::And)
             }
+            Op::Not => op_stack.push(Op::Not),
         }
     }
     while let Some(op) = op_stack.pop() {
@@ -389,12 +384,16 @@ fn solve_nodes(nodes: &Vec<Op>) -> Result<Ast, String> {
             Op::Or => {
                 let a = ast_stack.pop().ok_or("expected a value")?;
                 let b = ast_stack.pop().ok_or("expected a value")?;
-                ast_stack.push(Ast::Union(Box::new(a), Box::new(b)));
+                ast_stack.push(BQL::Or(Box::new(a), Box::new(b)));
             }
             Op::And => {
                 let a = ast_stack.pop().ok_or("expected a value")?;
                 let b = ast_stack.pop().ok_or("expected a value")?;
-                ast_stack.push(Ast::Intersection(Box::new(a), Box::new(b)));
+                ast_stack.push(BQL::And(Box::new(a), Box::new(b)));
+            }
+            Op::Not => {
+                let a = ast_stack.pop().ok_or("expected a value")?;
+                ast_stack.push(BQL::Not(Box::new(a)))
             }
             _ => {
                 return Err(format!("expected OR | AND but got {:?}", op));
@@ -491,14 +490,13 @@ mod tests {
 
     #[test]
     fn test_all_relation() {
-        assert_eq!(Ast::All, parse(r#"all"#).unwrap());
+        assert_eq!(BQL::IsPresent, parse(r#"all"#).unwrap());
     }
     #[test]
     fn test_defined_relation_single_field() {
         assert_eq!(
-            Ast::Defined {
+            BQL::IsDefined {
                 field: "field".to_owned(),
-                negate: false
             },
             parse(r#"field"#).unwrap()
         );
@@ -506,20 +504,18 @@ mod tests {
     #[test]
     fn test_not_defined_relation_with_exclamation() {
         assert_eq!(
-            Ast::Defined {
+            BQL::Not(Box::new(BQL::IsDefined {
                 field: "field".to_owned(),
-                negate: true
-            },
+            })),
             parse(r#"!field"#).unwrap()
         );
     }
     #[test]
     fn test_not_defined_relation_with_exclamation_and_space() {
         assert_eq!(
-            Ast::Defined {
+            BQL::Not(Box::new(BQL::IsDefined {
                 field: "field".to_owned(),
-                negate: true
-            },
+            })),
             parse(r#"! field"#).unwrap()
         );
     }
@@ -527,10 +523,9 @@ mod tests {
     #[test]
     fn test_not_defined_relation_with_not() {
         assert_eq!(
-            Ast::Defined {
+            BQL::Not(Box::new(BQL::IsDefined {
                 field: "field".to_owned(),
-                negate: true
-            },
+            })),
             parse(r#"not field"#).unwrap()
         );
     }
@@ -538,9 +533,8 @@ mod tests {
     #[test]
     fn test_defined_relation() {
         assert_eq!(
-            Ast::Defined {
+            BQL::IsDefined {
                 field: "field".to_owned(),
-                negate: false
             },
             parse(r#"field == defined"#).unwrap()
         );
@@ -548,10 +542,9 @@ mod tests {
     #[test]
     fn test_not_defined_relation() {
         assert_eq!(
-            Ast::Defined {
+            BQL::Not(Box::new(BQL::IsDefined {
                 field: "field".to_owned(),
-                negate: true
-            },
+            })),
             parse(r#"field != defined"#).unwrap()
         );
     }
@@ -559,19 +552,17 @@ mod tests {
     #[test]
     fn test_not_defined_relation_single_quoted() {
         assert_eq!(
-            Ast::Defined {
+            BQL::Not(Box::new(BQL::IsDefined {
                 field: "field".to_owned(),
-                negate: true
-            },
+            })),
             parse(r#"'field' != defined"#).unwrap()
         );
     }
     #[test]
     fn test_defined_relation_double_quoted() {
         assert_eq!(
-            Ast::Defined {
+            BQL::IsDefined {
                 field: "field".to_owned(),
-                negate: false
             },
             parse(r#""field" == defined"#).unwrap()
         );
@@ -580,9 +571,8 @@ mod tests {
     #[test]
     fn test_defined_relation_and_eq() {
         assert_eq!(
-            Ast::Defined {
+            BQL::IsDefined {
                 field: "field".to_owned(),
-                negate: false
             },
             parse(r#"field eq defined"#).unwrap()
         );
@@ -591,10 +581,9 @@ mod tests {
     #[test]
     fn test_not_defined_relation_and_ne() {
         assert_eq!(
-            Ast::Defined {
+            BQL::Not(Box::new(BQL::IsDefined {
                 field: "field".to_owned(),
-                negate: true
-            },
+            })),
             parse(r#"field ne defined"#).unwrap()
         );
     }
@@ -602,9 +591,8 @@ mod tests {
     #[test]
     fn test_eq_relation_with_eq_str() {
         assert_eq!(
-            Ast::Equal {
+            BQL::Eq {
                 field: "field".to_owned(),
-                negate: false,
                 value: Value::Text("abc".to_owned())
             },
             parse(r#"field eq "abc""#).unwrap()
@@ -613,11 +601,10 @@ mod tests {
     #[test]
     fn test_eq_relation_with_ne_str() {
         assert_eq!(
-            Ast::Equal {
+            BQL::Not(Box::new(BQL::Eq {
                 field: "field".to_owned(),
-                negate: true,
                 value: Value::Text("abc".to_owned())
-            },
+            })),
             parse(r#"field ne "abc""#).unwrap()
         );
     }
@@ -625,9 +612,8 @@ mod tests {
     #[test]
     fn test_eq_relation_with_eq_number() {
         assert_eq!(
-            Ast::Equal {
+            BQL::Eq {
                 field: "field".to_owned(),
-                negate: false,
                 value: Value::Rational(Rational::from(5.0 as f64))
             },
             parse(r#"field eq 5"#).unwrap()
@@ -637,9 +623,8 @@ mod tests {
     #[test]
     fn test_eq_relation_with_eq_negative_number() {
         assert_eq!(
-            Ast::Equal {
+            BQL::Eq {
                 field: "field".to_owned(),
-                negate: false,
                 value: Value::Rational(Rational::from(-5.0 as f64))
             },
             parse(r#"field eq -5"#).unwrap()
@@ -649,11 +634,10 @@ mod tests {
     #[test]
     fn test_eq_relation_with_ne_number() {
         assert_eq!(
-            Ast::Equal {
+            BQL::Not(Box::new(BQL::Eq {
                 field: "field".to_owned(),
-                negate: true,
                 value: Value::Rational(Rational::from(5.0 as f64))
-            },
+            })),
             parse(r#"field ne 5"#).unwrap()
         );
     }
@@ -661,9 +645,8 @@ mod tests {
     #[test]
     fn test_eq_relation_with_eq_true() {
         assert_eq!(
-            Ast::Equal {
+            BQL::Eq {
                 field: "field".to_owned(),
-                negate: false,
                 value: Value::Boolean(true)
             },
             parse(r#"field eq true"#).unwrap()
@@ -672,11 +655,10 @@ mod tests {
     #[test]
     fn test_eq_relation_with_ne_true() {
         assert_eq!(
-            Ast::Equal {
+            BQL::Not(Box::new(BQL::Eq {
                 field: "field".to_owned(),
-                negate: true,
                 value: Value::Boolean(true)
-            },
+            })),
             parse(r#"field ne true"#).unwrap()
         );
     }
@@ -684,9 +666,8 @@ mod tests {
     #[test]
     fn test_eq_relation_with_eq_false() {
         assert_eq!(
-            Ast::Equal {
+            BQL::Eq {
                 field: "field".to_owned(),
-                negate: false,
                 value: Value::Boolean(false)
             },
             parse(r#"field eq false"#).unwrap()
@@ -696,9 +677,8 @@ mod tests {
     #[test]
     fn test_eq_relation_with_is_false() {
         assert_eq!(
-            Ast::Equal {
+            BQL::Eq {
                 field: "field".to_owned(),
-                negate: false,
                 value: Value::Boolean(false)
             },
             parse(r#"field is false"#).unwrap()
@@ -708,11 +688,10 @@ mod tests {
     #[test]
     fn test_eq_relation_with_ne_false() {
         assert_eq!(
-            Ast::Equal {
+            BQL::Not(Box::new(BQL::Eq {
                 field: "field".to_owned(),
-                negate: true,
                 value: Value::Boolean(false)
-            },
+            })),
             parse(r#"field ne false"#).unwrap()
         );
     }
@@ -720,9 +699,8 @@ mod tests {
     #[test]
     fn test_eq_relation_with_is_null() {
         assert_eq!(
-            Ast::Equal {
+            BQL::Eq {
                 field: "field".to_owned(),
-                negate: false,
                 value: Value::Bottom,
             },
             parse(r#"field is null"#).unwrap()
@@ -731,9 +709,8 @@ mod tests {
     #[test]
     fn test_eq_relation_with_is_nil() {
         assert_eq!(
-            Ast::Equal {
+            BQL::Eq {
                 field: "field".to_owned(),
-                negate: false,
                 value: Value::Bottom,
             },
             parse(r#"field is nil"#).unwrap()
@@ -742,9 +719,8 @@ mod tests {
     #[test]
     fn test_eq_relation_with_is_nothing() {
         assert_eq!(
-            Ast::Equal {
+            BQL::Eq {
                 field: "field".to_owned(),
-                negate: false,
                 value: Value::Bottom,
             },
             parse(r#"field is nothing"#).unwrap()
@@ -754,7 +730,7 @@ mod tests {
     #[test]
     fn test_lt_relation_with_symbol() {
         assert_eq!(
-            Ast::LessThan {
+            BQL::LT {
                 field: "field".to_owned(),
                 value: Value::Rational(Rational::from(5.0 as f64))
             },
@@ -764,7 +740,7 @@ mod tests {
     #[test]
     fn test_lt_relation_with_str() {
         assert_eq!(
-            Ast::LessThan {
+            BQL::LT {
                 field: "field".to_owned(),
                 value: Value::Rational(Rational::from(5.0 as f64))
             },
@@ -775,7 +751,7 @@ mod tests {
     #[test]
     fn test_lte_relation_with_symbol() {
         assert_eq!(
-            Ast::LessThanOrEqual {
+            BQL::LE {
                 field: "field".to_owned(),
                 value: Value::Rational(Rational::from(5.0 as f64))
             },
@@ -785,7 +761,7 @@ mod tests {
     #[test]
     fn test_lte_relation_with_str() {
         assert_eq!(
-            Ast::LessThanOrEqual {
+            BQL::LE {
                 field: "field".to_owned(),
                 value: Value::Rational(Rational::from(5.0 as f64))
             },
@@ -796,7 +772,7 @@ mod tests {
     #[test]
     fn test_gt_relation_with_symbol() {
         assert_eq!(
-            Ast::GreaterThan {
+            BQL::GT {
                 field: "field".to_owned(),
                 value: Value::Rational(Rational::from(5.0 as f64))
             },
@@ -806,7 +782,7 @@ mod tests {
     #[test]
     fn test_gt_relation_with_str() {
         assert_eq!(
-            Ast::GreaterThan {
+            BQL::GT {
                 field: "field".to_owned(),
                 value: Value::Rational(Rational::from(5.0 as f64))
             },
@@ -817,7 +793,7 @@ mod tests {
     #[test]
     fn test_gte_relation_with_symbol() {
         assert_eq!(
-            Ast::GreaterThanOrEqual {
+            BQL::GE {
                 field: "field".to_owned(),
                 value: Value::Rational(Rational::from(5.0 as f64))
             },
@@ -827,7 +803,7 @@ mod tests {
     #[test]
     fn test_gte_relation_with_str() {
         assert_eq!(
-            Ast::GreaterThanOrEqual {
+            BQL::GE {
                 field: "field".to_owned(),
                 value: Value::Rational(Rational::from(5.0 as f64))
             },
@@ -838,7 +814,7 @@ mod tests {
     #[test]
     fn test_in_all_relation_mixed_values() {
         assert_eq!(
-            Ast::ContainsAll {
+            BQL::All {
                 field: "field".to_owned(),
                 values: vec![
                     Value::Text("a".to_owned()),
@@ -846,7 +822,6 @@ mod tests {
                     Value::Boolean(true),
                     Value::Bottom,
                 ],
-                negate: false
             },
             parse(r#"field in all ["a",42.05,true,nil]"#).unwrap()
         );
@@ -855,7 +830,7 @@ mod tests {
     #[test]
     fn test_in_all_relation_mixed_values_and_no_spaces() {
         assert_eq!(
-            Ast::ContainsAll {
+            BQL::All {
                 field: "field".to_owned(),
                 values: vec![
                     Value::Text("a".to_owned()),
@@ -863,7 +838,6 @@ mod tests {
                     Value::Boolean(true),
                     Value::Bottom,
                 ],
-                negate: false
             },
             parse(r#"field#all["a",42.05,true,nil]"#).unwrap()
         );
@@ -872,7 +846,7 @@ mod tests {
     #[test]
     fn test_not_in_all_relation_mixed_values() {
         assert_eq!(
-            Ast::ContainsAll {
+            BQL::Not(Box::new(BQL::All {
                 field: "field".to_owned(),
                 values: vec![
                     Value::Text("a".to_owned()),
@@ -880,8 +854,7 @@ mod tests {
                     Value::Boolean(true),
                     Value::Bottom,
                 ],
-                negate: true
-            },
+            })),
             parse(r#"field not in all ["a",42.05,true,nil]"#).unwrap()
         );
     }
@@ -889,7 +862,7 @@ mod tests {
     #[test]
     fn test_not_in_all_relation_mixed_values_and_no_spaces() {
         assert_eq!(
-            Ast::ContainsAll {
+            BQL::Not(Box::new(BQL::All {
                 field: "field".to_owned(),
                 values: vec![
                     Value::Text("a".to_owned()),
@@ -897,8 +870,7 @@ mod tests {
                     Value::Boolean(true),
                     Value::Bottom,
                 ],
-                negate: true
-            },
+            })),
             parse(r#"field!@all["a",42.05,true,nil]"#).unwrap()
         );
     }
@@ -906,7 +878,7 @@ mod tests {
     #[test]
     fn test_in_any_relation_mixed_values() {
         assert_eq!(
-            Ast::ContainsAny {
+            BQL::Any {
                 field: "field".to_owned(),
                 values: vec![
                     Value::Text("a".to_owned()),
@@ -914,7 +886,6 @@ mod tests {
                     Value::Boolean(true),
                     Value::Bottom,
                 ],
-                negate: false
             },
             parse(r#"field in any ["a",42.05,true,nil]"#).unwrap()
         );
@@ -923,7 +894,7 @@ mod tests {
     #[test]
     fn test_in_any_relation_mixed_values_and_no_spaces() {
         assert_eq!(
-            Ast::ContainsAny {
+            BQL::Any {
                 field: "field".to_owned(),
                 values: vec![
                     Value::Text("a".to_owned()),
@@ -931,7 +902,6 @@ mod tests {
                     Value::Boolean(true),
                     Value::Bottom,
                 ],
-                negate: false
             },
             parse(r#"field#any["a",42.05,true,nil]"#).unwrap()
         );
@@ -940,7 +910,7 @@ mod tests {
     #[test]
     fn test_not_in_any_relation_mixed_values() {
         assert_eq!(
-            Ast::ContainsAny {
+            BQL::Not(Box::new(BQL::Any {
                 field: "field".to_owned(),
                 values: vec![
                     Value::Text("a".to_owned()),
@@ -948,8 +918,7 @@ mod tests {
                     Value::Boolean(true),
                     Value::Bottom,
                 ],
-                negate: true
-            },
+            })),
             parse(r#"field not in any ["a",42.05,true,nil]"#).unwrap()
         );
     }
@@ -957,7 +926,7 @@ mod tests {
     #[test]
     fn test_not_in_any_relation_mixed_values_and_no_spaces() {
         assert_eq!(
-            Ast::ContainsAny {
+            BQL::Not(Box::new(BQL::Any {
                 field: "field".to_owned(),
                 values: vec![
                     Value::Text("a".to_owned()),
@@ -965,8 +934,7 @@ mod tests {
                     Value::Boolean(true),
                     Value::Bottom,
                 ],
-                negate: true
-            },
+            })),
             parse(r#"field!@any["a",42.05,true,nil]"#).unwrap()
         );
     }
@@ -974,22 +942,19 @@ mod tests {
     #[test]
     fn test_union_of_three_predicates() {
         assert_eq!(
-            Ast::Union(
-                Box::new(Ast::Union(
-                    Box::new(Ast::Equal {
+            BQL::Or(
+                Box::new(BQL::Or(
+                    Box::new(BQL::Eq {
                         field: "field".to_owned(),
                         value: Value::Rational(Rational::from(42.0 as f64)),
-                        negate: false
                     }),
-                    Box::new(Ast::Equal {
+                    Box::new(BQL::Eq {
                         field: "field".to_owned(),
                         value: Value::Bottom,
-                        negate: false
                     }),
                 )),
-                Box::new(Ast::Defined {
+                Box::new(BQL::IsDefined {
                     field: "field".to_owned(),
-                    negate: false,
                 }),
             ),
             parse(r#"field == defined  or  field == null or field == 42"#).unwrap()
@@ -999,21 +964,18 @@ mod tests {
     #[test]
     fn test_intersection_of_three_predicates() {
         assert_eq!(
-            Ast::Intersection(
-                Box::new(Ast::Equal {
+            BQL::And(
+                Box::new(BQL::Eq {
                     field: "field".to_owned(),
                     value: Value::Rational(Rational::from(42.0 as f64)),
-                    negate: false
                 }),
-                Box::new(Ast::Intersection(
-                    Box::new(Ast::Equal {
+                Box::new(BQL::And(
+                    Box::new(BQL::Eq {
                         field: "field".to_owned(),
                         value: Value::Bottom,
-                        negate: false
                     }),
-                    Box::new(Ast::Defined {
+                    Box::new(BQL::IsDefined {
                         field: "field".to_owned(),
-                        negate: false,
                     }),
                 )),
             ),
@@ -1023,25 +985,44 @@ mod tests {
     #[test]
     fn test_intersection_and_union_with_parentheses() {
         assert_eq!(
-            Ast::Intersection(
-                Box::new(Ast::Union(
-                    Box::new(Ast::Equal {
+            BQL::And(
+                Box::new(BQL::Or(
+                    Box::new(BQL::Eq {
                         field: "field".to_owned(),
                         value: Value::Rational(Rational::from(42.0 as f64)),
-                        negate: false
                     }),
-                    Box::new(Ast::Equal {
+                    Box::new(BQL::Eq {
                         field: "field".to_owned(),
                         value: Value::Bottom,
-                        negate: false
                     }),
                 )),
-                Box::new(Ast::Defined {
+                Box::new(BQL::IsDefined {
                     field: "field".to_owned(),
-                    negate: false
                 })
             ),
             parse(r#"(field == defined ) and  ( field == null or field == 42 ) "#).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_intersection_and_union_with_parenthesesand_ne() {
+        assert_eq!(
+            BQL::And(
+                Box::new(BQL::Not(Box::new(BQL::Or(
+                    Box::new(BQL::Not(Box::new(BQL::LT {
+                        field: "field".to_owned(),
+                        value: Value::Rational(Rational::from(42.0 as f64)),
+                    }))),
+                    Box::new(BQL::Eq {
+                        field: "field".to_owned(),
+                        value: Value::Bottom,
+                    }),
+                )))),
+                Box::new(BQL::Not(Box::new(BQL::IsDefined {
+                    field: "field".to_owned(),
+                })))
+            ),
+            parse(r#"!(field)&&!(field==null||!field<42)"#).unwrap()
         );
     }
 }

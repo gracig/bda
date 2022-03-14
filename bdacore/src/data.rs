@@ -229,14 +229,14 @@ mod test_super {
     use crate::logic;
 
     use super::*;
-    use bdaindex::bql::Ast;
+    use bdaindex::bql::BQL;
 
     #[test]
     fn test_data_search() {
         let mut mock = MockDatastore::new();
         let q = Query {
             kind: EntityKind::Resource,
-            ast: Ast::All,
+            ast: BQL::IsPresent,
         };
         let entitya = EntityID::ResourceID("a".to_owned());
         let entityb = EntityID::ResourceID("b".to_owned());

@@ -110,9 +110,9 @@ pub enum Token {
     Eq,
     Ne,
     Lt,
-    Lte,
+    Le,
     Gt,
-    Gte,
+    Ge,
     None,
     Defined,
     True,
@@ -153,9 +153,9 @@ fn scan_ident<T: Iterator<Item = char>>(it: &mut Peekable<T>) -> Token {
         "EQ" => Token::Eq,
         "NE" => Token::Ne,
         "LT" => Token::Lt,
-        "LTE" => Token::Lte,
+        "LTE" => Token::Le,
         "GT" => Token::Gt,
-        "GTE" => Token::Gte,
+        "GTE" => Token::Ge,
         "IS" => Token::Eq,
         _ => Token::Ident(buf),
     }
@@ -187,9 +187,9 @@ fn scan_relation<T: Iterator<Item = char>>(it: &mut Peekable<T>) -> Token {
         "==" => Token::Eq,
         "!=" => Token::Ne,
         "<" => Token::Lt,
-        "<=" => Token::Lte,
+        "<=" => Token::Le,
         ">" => Token::Gt,
-        ">=" => Token::Gte,
+        ">=" => Token::Ge,
         "!" => Token::Not,
         _ => Token::BadRelation(buf),
     }
@@ -381,7 +381,7 @@ mod tests {
     #[test]
     fn test_lte_as_symbol() {
         let test = r#"<=5"#;
-        let want = Token::Lte;
+        let want = Token::Le;
         match scan(test).get(0) {
             Some(t) => assert_eq!(*t, want),
             _ => panic!("no token"),
@@ -391,7 +391,7 @@ mod tests {
     #[test]
     fn test_lte_insensitive() {
         let test = r#"lTe 5"#;
-        let want = Token::Lte;
+        let want = Token::Le;
         match scan(test).get(0) {
             Some(t) => assert_eq!(*t, want),
             _ => panic!("no token"),
@@ -420,7 +420,7 @@ mod tests {
     #[test]
     fn test_gte_as_symbol() {
         let test = r#">=5"#;
-        let want = Token::Gte;
+        let want = Token::Ge;
         match scan(test).get(0) {
             Some(t) => assert_eq!(*t, want),
             _ => panic!("no token"),
@@ -430,7 +430,7 @@ mod tests {
     #[test]
     fn test_gte_insensitive() {
         let test = r#"gTe 5"#;
-        let want = Token::Gte;
+        let want = Token::Ge;
         match scan(test).get(0) {
             Some(t) => assert_eq!(*t, want),
             _ => panic!("no token"),
