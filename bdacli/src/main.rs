@@ -1,22 +1,17 @@
+use bdacli::datastore;
 use bdaproto::bda_client::BdaClient;
 use clap::{Args, Parser, Subcommand};
 use std::error::Error;
-use tonic::{transport::Endpoint, Request};
+use tonic::transport::Endpoint;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let cfg = Config::parse();
-
     match cfg.command {
         Command::Datastore(cfg) => {
             eprintln!("Connecting to datastore on {:?}", cfg.endpoint.uri());
             let mut client = BdaClient::connect(cfg.endpoint).await?;
-            println!(
-                "kinds {:?}",
-                client
-                    .get_kinds(Request::new(bdaproto::GetKindsRequest {}))
-                    .await?
-            );
+            datastore::print_kinds(&mut client).await?;
         }
     }
     Ok(())
