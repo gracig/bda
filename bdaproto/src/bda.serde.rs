@@ -1529,7 +1529,7 @@ impl serde::Serialize for Parameter {
         if !self.description.is_empty() {
             len += 1;
         }
-        if self.kind != 0 {
+        if self.parameter_kind != 0 {
             len += 1;
         }
         if self.default_value.is_some() {
@@ -1542,10 +1542,10 @@ impl serde::Serialize for Parameter {
         if !self.description.is_empty() {
             struct_ser.serialize_field("description", &self.description)?;
         }
-        if self.kind != 0 {
-            let v = parameter::ParameterKind::from_i32(self.kind)
-                .ok_or_else(|| serde::ser::Error::custom(format!("Invalid variant {}", self.kind)))?;
-            struct_ser.serialize_field("kind", &v)?;
+        if self.parameter_kind != 0 {
+            let v = parameter::ParameterKind::from_i32(self.parameter_kind)
+                .ok_or_else(|| serde::ser::Error::custom(format!("Invalid variant {}", self.parameter_kind)))?;
+            struct_ser.serialize_field("parameterKind", &v)?;
         }
         if let Some(v) = self.default_value.as_ref() {
             struct_ser.serialize_field("defaultValue", v)?;
@@ -1562,7 +1562,7 @@ impl<'de> serde::Deserialize<'de> for Parameter {
         const FIELDS: &[&str] = &[
             "name",
             "description",
-            "kind",
+            "parameterKind",
             "defaultValue",
         ];
 
@@ -1570,7 +1570,7 @@ impl<'de> serde::Deserialize<'de> for Parameter {
         enum GeneratedField {
             Name,
             Description,
-            Kind,
+            ParameterKind,
             DefaultValue,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
@@ -1594,7 +1594,7 @@ impl<'de> serde::Deserialize<'de> for Parameter {
                         match value {
                             "name" => Ok(GeneratedField::Name),
                             "description" => Ok(GeneratedField::Description),
-                            "kind" => Ok(GeneratedField::Kind),
+                            "parameterKind" => Ok(GeneratedField::ParameterKind),
                             "defaultValue" => Ok(GeneratedField::DefaultValue),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
@@ -1617,7 +1617,7 @@ impl<'de> serde::Deserialize<'de> for Parameter {
             {
                 let mut name = None;
                 let mut description = None;
-                let mut kind = None;
+                let mut parameter_kind = None;
                 let mut default_value = None;
                 while let Some(k) = map.next_key()? {
                     match k {
@@ -1633,11 +1633,11 @@ impl<'de> serde::Deserialize<'de> for Parameter {
                             }
                             description = Some(map.next_value()?);
                         }
-                        GeneratedField::Kind => {
-                            if kind.is_some() {
-                                return Err(serde::de::Error::duplicate_field("kind"));
+                        GeneratedField::ParameterKind => {
+                            if parameter_kind.is_some() {
+                                return Err(serde::de::Error::duplicate_field("parameterKind"));
                             }
-                            kind = Some(map.next_value::<parameter::ParameterKind>()? as i32);
+                            parameter_kind = Some(map.next_value::<parameter::ParameterKind>()? as i32);
                         }
                         GeneratedField::DefaultValue => {
                             if default_value.is_some() {
@@ -1650,7 +1650,7 @@ impl<'de> serde::Deserialize<'de> for Parameter {
                 Ok(Parameter {
                     name: name.unwrap_or_default(),
                     description: description.unwrap_or_default(),
-                    kind: kind.unwrap_or_default(),
+                    parameter_kind: parameter_kind.unwrap_or_default(),
                     default_value,
                 })
             }
@@ -1665,8 +1665,8 @@ impl serde::Serialize for parameter::ParameterKind {
         S: serde::Serializer,
     {
         let variant = match self {
-            Self::Integer => "INTEGER",
-            Self::Real => "REAL",
+            Self::Generic => "GENERIC",
+            Self::Number => "NUMBER",
             Self::Boolean => "BOOLEAN",
             Self::Text => "TEXT",
             Self::Json => "JSON",
@@ -1683,8 +1683,8 @@ impl<'de> serde::Deserialize<'de> for parameter::ParameterKind {
         D: serde::Deserializer<'de>,
     {
         const FIELDS: &[&str] = &[
-            "INTEGER",
-            "REAL",
+            "GENERIC",
+            "NUMBER",
             "BOOLEAN",
             "TEXT",
             "JSON",
@@ -1732,8 +1732,8 @@ impl<'de> serde::Deserialize<'de> for parameter::ParameterKind {
                 E: serde::de::Error,
             {
                 match value {
-                    "INTEGER" => Ok(parameter::ParameterKind::Integer),
-                    "REAL" => Ok(parameter::ParameterKind::Real),
+                    "GENERIC" => Ok(parameter::ParameterKind::Generic),
+                    "NUMBER" => Ok(parameter::ParameterKind::Number),
                     "BOOLEAN" => Ok(parameter::ParameterKind::Boolean),
                     "TEXT" => Ok(parameter::ParameterKind::Text),
                     "JSON" => Ok(parameter::ParameterKind::Json),

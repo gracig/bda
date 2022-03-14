@@ -42,11 +42,11 @@ message Function {
 message Parameter {
     string name = 1;
     string description = 2;
-    ParameterKind kind = 3;
+    ParameterKind parameterKind = 3;
     google.protobuf.Value defaultValue = 4;
     enum ParameterKind {
-        INTEGER = 0;
-        REAL = 1;
+        GENERIC = 0;
+        NUMBER = 1;
         BOOLEAN = 2;
         TEXT = 3;
         JSON = 4;
