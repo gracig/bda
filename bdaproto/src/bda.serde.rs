@@ -96,7 +96,7 @@ impl serde::Serialize for DelResourceRequest {
     {
         use serde::ser::SerializeStruct;
         let mut len = 0;
-        if !self.revision.is_empty() {
+        if !self.version.is_empty() {
             len += 1;
         }
         if !self.namespace.is_empty() {
@@ -109,8 +109,8 @@ impl serde::Serialize for DelResourceRequest {
             len += 1;
         }
         let mut struct_ser = serializer.serialize_struct("bda.DelResourceRequest", len)?;
-        if !self.revision.is_empty() {
-            struct_ser.serialize_field("revision", &self.revision)?;
+        if !self.version.is_empty() {
+            struct_ser.serialize_field("version", &self.version)?;
         }
         if !self.namespace.is_empty() {
             struct_ser.serialize_field("namespace", &self.namespace)?;
@@ -131,7 +131,7 @@ impl<'de> serde::Deserialize<'de> for DelResourceRequest {
         D: serde::Deserializer<'de>,
     {
         const FIELDS: &[&str] = &[
-            "revision",
+            "version",
             "namespace",
             "kind",
             "name",
@@ -139,7 +139,7 @@ impl<'de> serde::Deserialize<'de> for DelResourceRequest {
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
-            Revision,
+            Version,
             Namespace,
             Kind,
             Name,
@@ -163,7 +163,7 @@ impl<'de> serde::Deserialize<'de> for DelResourceRequest {
                         E: serde::de::Error,
                     {
                         match value {
-                            "revision" => Ok(GeneratedField::Revision),
+                            "version" => Ok(GeneratedField::Version),
                             "namespace" => Ok(GeneratedField::Namespace),
                             "kind" => Ok(GeneratedField::Kind),
                             "name" => Ok(GeneratedField::Name),
@@ -186,17 +186,17 @@ impl<'de> serde::Deserialize<'de> for DelResourceRequest {
                 where
                     V: serde::de::MapAccess<'de>,
             {
-                let mut revision = None;
+                let mut version = None;
                 let mut namespace = None;
                 let mut kind = None;
                 let mut name = None;
                 while let Some(k) = map.next_key()? {
                     match k {
-                        GeneratedField::Revision => {
-                            if revision.is_some() {
-                                return Err(serde::de::Error::duplicate_field("revision"));
+                        GeneratedField::Version => {
+                            if version.is_some() {
+                                return Err(serde::de::Error::duplicate_field("version"));
                             }
-                            revision = Some(map.next_value()?);
+                            version = Some(map.next_value()?);
                         }
                         GeneratedField::Namespace => {
                             if namespace.is_some() {
@@ -219,7 +219,7 @@ impl<'de> serde::Deserialize<'de> for DelResourceRequest {
                     }
                 }
                 Ok(DelResourceRequest {
-                    revision: revision.unwrap_or_default(),
+                    version: version.unwrap_or_default(),
                     namespace: namespace.unwrap_or_default(),
                     kind: kind.unwrap_or_default(),
                     name: name.unwrap_or_default(),
@@ -329,7 +329,7 @@ impl serde::Serialize for DelResourcesRequest {
     {
         use serde::ser::SerializeStruct;
         let mut len = 0;
-        if !self.revision.is_empty() {
+        if !self.version.is_empty() {
             len += 1;
         }
         if !self.namespaces.is_empty() {
@@ -342,8 +342,8 @@ impl serde::Serialize for DelResourcesRequest {
             len += 1;
         }
         let mut struct_ser = serializer.serialize_struct("bda.DelResourcesRequest", len)?;
-        if !self.revision.is_empty() {
-            struct_ser.serialize_field("revision", &self.revision)?;
+        if !self.version.is_empty() {
+            struct_ser.serialize_field("version", &self.version)?;
         }
         if !self.namespaces.is_empty() {
             struct_ser.serialize_field("namespaces", &self.namespaces)?;
@@ -364,7 +364,7 @@ impl<'de> serde::Deserialize<'de> for DelResourcesRequest {
         D: serde::Deserializer<'de>,
     {
         const FIELDS: &[&str] = &[
-            "revision",
+            "version",
             "namespaces",
             "kinds",
             "bql",
@@ -372,7 +372,7 @@ impl<'de> serde::Deserialize<'de> for DelResourcesRequest {
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
-            Revision,
+            Version,
             Namespaces,
             Kinds,
             Bql,
@@ -396,7 +396,7 @@ impl<'de> serde::Deserialize<'de> for DelResourcesRequest {
                         E: serde::de::Error,
                     {
                         match value {
-                            "revision" => Ok(GeneratedField::Revision),
+                            "version" => Ok(GeneratedField::Version),
                             "namespaces" => Ok(GeneratedField::Namespaces),
                             "kinds" => Ok(GeneratedField::Kinds),
                             "bql" => Ok(GeneratedField::Bql),
@@ -419,17 +419,17 @@ impl<'de> serde::Deserialize<'de> for DelResourcesRequest {
                 where
                     V: serde::de::MapAccess<'de>,
             {
-                let mut revision = None;
+                let mut version = None;
                 let mut namespaces = None;
                 let mut kinds = None;
                 let mut bql = None;
                 while let Some(k) = map.next_key()? {
                     match k {
-                        GeneratedField::Revision => {
-                            if revision.is_some() {
-                                return Err(serde::de::Error::duplicate_field("revision"));
+                        GeneratedField::Version => {
+                            if version.is_some() {
+                                return Err(serde::de::Error::duplicate_field("version"));
                             }
-                            revision = Some(map.next_value()?);
+                            version = Some(map.next_value()?);
                         }
                         GeneratedField::Namespaces => {
                             if namespaces.is_some() {
@@ -452,7 +452,7 @@ impl<'de> serde::Deserialize<'de> for DelResourcesRequest {
                     }
                 }
                 Ok(DelResourcesRequest {
-                    revision: revision.unwrap_or_default(),
+                    version: version.unwrap_or_default(),
                     namespaces: namespaces.unwrap_or_default(),
                     kinds: kinds.unwrap_or_default(),
                     bql: bql.unwrap_or_default(),
@@ -927,7 +927,7 @@ impl serde::Serialize for GetResourceRequest {
     {
         use serde::ser::SerializeStruct;
         let mut len = 0;
-        if !self.revision.is_empty() {
+        if !self.version.is_empty() {
             len += 1;
         }
         if !self.namespace.is_empty() {
@@ -940,8 +940,8 @@ impl serde::Serialize for GetResourceRequest {
             len += 1;
         }
         let mut struct_ser = serializer.serialize_struct("bda.GetResourceRequest", len)?;
-        if !self.revision.is_empty() {
-            struct_ser.serialize_field("revision", &self.revision)?;
+        if !self.version.is_empty() {
+            struct_ser.serialize_field("version", &self.version)?;
         }
         if !self.namespace.is_empty() {
             struct_ser.serialize_field("namespace", &self.namespace)?;
@@ -962,7 +962,7 @@ impl<'de> serde::Deserialize<'de> for GetResourceRequest {
         D: serde::Deserializer<'de>,
     {
         const FIELDS: &[&str] = &[
-            "revision",
+            "version",
             "namespace",
             "kind",
             "name",
@@ -970,7 +970,7 @@ impl<'de> serde::Deserialize<'de> for GetResourceRequest {
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
-            Revision,
+            Version,
             Namespace,
             Kind,
             Name,
@@ -994,7 +994,7 @@ impl<'de> serde::Deserialize<'de> for GetResourceRequest {
                         E: serde::de::Error,
                     {
                         match value {
-                            "revision" => Ok(GeneratedField::Revision),
+                            "version" => Ok(GeneratedField::Version),
                             "namespace" => Ok(GeneratedField::Namespace),
                             "kind" => Ok(GeneratedField::Kind),
                             "name" => Ok(GeneratedField::Name),
@@ -1017,17 +1017,17 @@ impl<'de> serde::Deserialize<'de> for GetResourceRequest {
                 where
                     V: serde::de::MapAccess<'de>,
             {
-                let mut revision = None;
+                let mut version = None;
                 let mut namespace = None;
                 let mut kind = None;
                 let mut name = None;
                 while let Some(k) = map.next_key()? {
                     match k {
-                        GeneratedField::Revision => {
-                            if revision.is_some() {
-                                return Err(serde::de::Error::duplicate_field("revision"));
+                        GeneratedField::Version => {
+                            if version.is_some() {
+                                return Err(serde::de::Error::duplicate_field("version"));
                             }
-                            revision = Some(map.next_value()?);
+                            version = Some(map.next_value()?);
                         }
                         GeneratedField::Namespace => {
                             if namespace.is_some() {
@@ -1050,7 +1050,7 @@ impl<'de> serde::Deserialize<'de> for GetResourceRequest {
                     }
                 }
                 Ok(GetResourceRequest {
-                    revision: revision.unwrap_or_default(),
+                    version: version.unwrap_or_default(),
                     namespace: namespace.unwrap_or_default(),
                     kind: kind.unwrap_or_default(),
                     name: name.unwrap_or_default(),
@@ -1068,7 +1068,7 @@ impl serde::Serialize for GetResourcesRequest {
     {
         use serde::ser::SerializeStruct;
         let mut len = 0;
-        if !self.revision.is_empty() {
+        if !self.version.is_empty() {
             len += 1;
         }
         if !self.namespaces.is_empty() {
@@ -1081,8 +1081,8 @@ impl serde::Serialize for GetResourcesRequest {
             len += 1;
         }
         let mut struct_ser = serializer.serialize_struct("bda.GetResourcesRequest", len)?;
-        if !self.revision.is_empty() {
-            struct_ser.serialize_field("revision", &self.revision)?;
+        if !self.version.is_empty() {
+            struct_ser.serialize_field("version", &self.version)?;
         }
         if !self.namespaces.is_empty() {
             struct_ser.serialize_field("namespaces", &self.namespaces)?;
@@ -1103,7 +1103,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesRequest {
         D: serde::Deserializer<'de>,
     {
         const FIELDS: &[&str] = &[
-            "revision",
+            "version",
             "namespaces",
             "kinds",
             "bql",
@@ -1111,7 +1111,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesRequest {
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
-            Revision,
+            Version,
             Namespaces,
             Kinds,
             Bql,
@@ -1135,7 +1135,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesRequest {
                         E: serde::de::Error,
                     {
                         match value {
-                            "revision" => Ok(GeneratedField::Revision),
+                            "version" => Ok(GeneratedField::Version),
                             "namespaces" => Ok(GeneratedField::Namespaces),
                             "kinds" => Ok(GeneratedField::Kinds),
                             "bql" => Ok(GeneratedField::Bql),
@@ -1158,17 +1158,17 @@ impl<'de> serde::Deserialize<'de> for GetResourcesRequest {
                 where
                     V: serde::de::MapAccess<'de>,
             {
-                let mut revision = None;
+                let mut version = None;
                 let mut namespaces = None;
                 let mut kinds = None;
                 let mut bql = None;
                 while let Some(k) = map.next_key()? {
                     match k {
-                        GeneratedField::Revision => {
-                            if revision.is_some() {
-                                return Err(serde::de::Error::duplicate_field("revision"));
+                        GeneratedField::Version => {
+                            if version.is_some() {
+                                return Err(serde::de::Error::duplicate_field("version"));
                             }
-                            revision = Some(map.next_value()?);
+                            version = Some(map.next_value()?);
                         }
                         GeneratedField::Namespaces => {
                             if namespaces.is_some() {
@@ -1191,7 +1191,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesRequest {
                     }
                 }
                 Ok(GetResourcesRequest {
-                    revision: revision.unwrap_or_default(),
+                    version: version.unwrap_or_default(),
                     namespaces: namespaces.unwrap_or_default(),
                     kinds: kinds.unwrap_or_default(),
                     bql: bql.unwrap_or_default(),
@@ -1291,7 +1291,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesResponse {
         deserializer.deserialize_struct("bda.GetResourcesResponse", FIELDS, GeneratedVisitor)
     }
 }
-impl serde::Serialize for GetRevisionsRequest {
+impl serde::Serialize for GetVersionsRequest {
     #[allow(deprecated)]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1299,11 +1299,11 @@ impl serde::Serialize for GetRevisionsRequest {
     {
         use serde::ser::SerializeStruct;
         let len = 0;
-        let struct_ser = serializer.serialize_struct("bda.GetRevisionsRequest", len)?;
+        let struct_ser = serializer.serialize_struct("bda.GetVersionsRequest", len)?;
         struct_ser.end()
     }
 }
-impl<'de> serde::Deserialize<'de> for GetRevisionsRequest {
+impl<'de> serde::Deserialize<'de> for GetVersionsRequest {
     #[allow(deprecated)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -1341,25 +1341,25 @@ impl<'de> serde::Deserialize<'de> for GetRevisionsRequest {
         }
         struct GeneratedVisitor;
         impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
-            type Value = GetRevisionsRequest;
+            type Value = GetVersionsRequest;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                formatter.write_str("struct bda.GetRevisionsRequest")
+                formatter.write_str("struct bda.GetVersionsRequest")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<GetRevisionsRequest, V::Error>
+            fn visit_map<V>(self, mut map: V) -> Result<GetVersionsRequest, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
                 while map.next_key::<GeneratedField>()?.is_some() {}
-                Ok(GetRevisionsRequest {
+                Ok(GetVersionsRequest {
                 })
             }
         }
-        deserializer.deserialize_struct("bda.GetRevisionsRequest", FIELDS, GeneratedVisitor)
+        deserializer.deserialize_struct("bda.GetVersionsRequest", FIELDS, GeneratedVisitor)
     }
 }
-impl serde::Serialize for GetRevisionsResponse {
+impl serde::Serialize for GetVersionsResponse {
     #[allow(deprecated)]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1367,29 +1367,29 @@ impl serde::Serialize for GetRevisionsResponse {
     {
         use serde::ser::SerializeStruct;
         let mut len = 0;
-        if !self.revisions.is_empty() {
+        if !self.versions.is_empty() {
             len += 1;
         }
-        let mut struct_ser = serializer.serialize_struct("bda.GetRevisionsResponse", len)?;
-        if !self.revisions.is_empty() {
-            struct_ser.serialize_field("revisions", &self.revisions)?;
+        let mut struct_ser = serializer.serialize_struct("bda.GetVersionsResponse", len)?;
+        if !self.versions.is_empty() {
+            struct_ser.serialize_field("versions", &self.versions)?;
         }
         struct_ser.end()
     }
 }
-impl<'de> serde::Deserialize<'de> for GetRevisionsResponse {
+impl<'de> serde::Deserialize<'de> for GetVersionsResponse {
     #[allow(deprecated)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         const FIELDS: &[&str] = &[
-            "revisions",
+            "versions",
         ];
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
-            Revisions,
+            Versions,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
@@ -1410,7 +1410,7 @@ impl<'de> serde::Deserialize<'de> for GetRevisionsResponse {
                         E: serde::de::Error,
                     {
                         match value {
-                            "revisions" => Ok(GeneratedField::Revisions),
+                            "versions" => Ok(GeneratedField::Versions),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -1420,33 +1420,33 @@ impl<'de> serde::Deserialize<'de> for GetRevisionsResponse {
         }
         struct GeneratedVisitor;
         impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
-            type Value = GetRevisionsResponse;
+            type Value = GetVersionsResponse;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                formatter.write_str("struct bda.GetRevisionsResponse")
+                formatter.write_str("struct bda.GetVersionsResponse")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<GetRevisionsResponse, V::Error>
+            fn visit_map<V>(self, mut map: V) -> Result<GetVersionsResponse, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
-                let mut revisions = None;
+                let mut versions = None;
                 while let Some(k) = map.next_key()? {
                     match k {
-                        GeneratedField::Revisions => {
-                            if revisions.is_some() {
-                                return Err(serde::de::Error::duplicate_field("revisions"));
+                        GeneratedField::Versions => {
+                            if versions.is_some() {
+                                return Err(serde::de::Error::duplicate_field("versions"));
                             }
-                            revisions = Some(map.next_value()?);
+                            versions = Some(map.next_value()?);
                         }
                     }
                 }
-                Ok(GetRevisionsResponse {
-                    revisions: revisions.unwrap_or_default(),
+                Ok(GetVersionsResponse {
+                    versions: versions.unwrap_or_default(),
                 })
             }
         }
-        deserializer.deserialize_struct("bda.GetRevisionsResponse", FIELDS, GeneratedVisitor)
+        deserializer.deserialize_struct("bda.GetVersionsResponse", FIELDS, GeneratedVisitor)
     }
 }
 impl serde::Serialize for Parameter {

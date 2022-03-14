@@ -7,7 +7,7 @@ use bdaproto::bda_server::Bda;
 use bdaproto::{
     self, DelResourceRequest, DelResourceResponse, DelResourcesRequest, GetKindsRequest,
     GetKindsResponse, GetNamespacesRequest, GetNamespacesResponse, GetResourceRequest,
-    GetResourcesRequest, GetResourcesResponse, GetRevisionsRequest, GetRevisionsResponse,
+    GetResourcesRequest, GetResourcesResponse, GetVersionsRequest, GetVersionsResponse,
     PutResourceRequest, PutResourceResponse, Resource,
 };
 use tokio::sync::mpsc;
@@ -20,15 +20,15 @@ pub struct BDADatastoreService {
 
 #[async_trait]
 impl Bda for BDADatastoreService {
-    async fn get_revisions(
+    async fn get_versions(
         &self,
-        _request: tonic::Request<GetRevisionsRequest>,
-    ) -> Result<tonic::Response<GetRevisionsResponse>, Status> {
+        _request: tonic::Request<GetVersionsRequest>,
+    ) -> Result<tonic::Response<GetVersionsResponse>, Status> {
         self.data
             .values_as_string(&EntityKind::Resource, ".version")
             .and_then(|iter| {
-                Ok(Response::new(GetRevisionsResponse {
-                    revisions: iter.collect(),
+                Ok(Response::new(GetVersionsResponse {
+                    versions: iter.collect(),
                 }))
             })
             .map_err(|e| Status::internal(e.to_string()))

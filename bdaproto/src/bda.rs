@@ -86,7 +86,7 @@ pub struct Container {
     pub dockerfile: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetRevisionsRequest {}
+pub struct GetVersionsRequest {}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetNamespacesRequest {}
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -97,9 +97,9 @@ pub struct GetResourcesResponse {
     pub resources: ::prost::alloc::vec::Vec<Resource>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetRevisionsResponse {
+pub struct GetVersionsResponse {
     #[prost(string, repeated, tag = "1")]
-    pub revisions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    pub versions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetNamespacesResponse {
@@ -115,7 +115,7 @@ pub struct GetKindsResponse {
 pub struct GetResourcesRequest {
     ///blank is latest
     #[prost(string, tag = "1")]
-    pub revision: ::prost::alloc::string::String,
+    pub version: ::prost::alloc::string::String,
     ///all for all or comma separated values. blank is all
     #[prost(string, tag = "2")]
     pub namespaces: ::prost::alloc::string::String,
@@ -129,7 +129,7 @@ pub struct GetResourcesRequest {
 pub struct DelResourcesRequest {
     ///blank is latest
     #[prost(string, tag = "1")]
-    pub revision: ::prost::alloc::string::String,
+    pub version: ::prost::alloc::string::String,
     ///all for all or comma separated values. blank is all
     #[prost(string, tag = "2")]
     pub namespaces: ::prost::alloc::string::String,
@@ -142,7 +142,7 @@ pub struct DelResourcesRequest {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetResourceRequest {
     #[prost(string, tag = "1")]
-    pub revision: ::prost::alloc::string::String,
+    pub version: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
     pub namespace: ::prost::alloc::string::String,
     #[prost(string, tag = "3")]
@@ -163,7 +163,7 @@ pub struct PutResourceResponse {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DelResourceRequest {
     #[prost(string, tag = "1")]
-    pub revision: ::prost::alloc::string::String,
+    pub version: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
     pub namespace: ::prost::alloc::string::String,
     #[prost(string, tag = "3")]
@@ -233,10 +233,10 @@ pub mod bda_client {
             self.inner = self.inner.accept_gzip();
             self
         }
-        pub async fn get_revisions(
+        pub async fn get_versions(
             &mut self,
-            request: impl tonic::IntoRequest<super::GetRevisionsRequest>,
-        ) -> Result<tonic::Response<super::GetRevisionsResponse>, tonic::Status> {
+            request: impl tonic::IntoRequest<super::GetVersionsRequest>,
+        ) -> Result<tonic::Response<super::GetVersionsResponse>, tonic::Status> {
             self.inner.ready().await.map_err(|e| {
                 tonic::Status::new(
                     tonic::Code::Unknown,
@@ -244,7 +244,7 @@ pub mod bda_client {
                 )
             })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/bda.BDA/GetRevisions");
+            let path = http::uri::PathAndQuery::from_static("/bda.BDA/GetVersions");
             self.inner.unary(request.into_request(), path, codec).await
         }
         pub async fn get_namespaces(
@@ -371,10 +371,10 @@ pub mod bda_server {
     #[doc = "Generated trait containing gRPC methods that should be implemented for use with BdaServer."]
     #[async_trait]
     pub trait Bda: Send + Sync + 'static {
-        async fn get_revisions(
+        async fn get_versions(
             &self,
-            request: tonic::Request<super::GetRevisionsRequest>,
-        ) -> Result<tonic::Response<super::GetRevisionsResponse>, tonic::Status>;
+            request: tonic::Request<super::GetVersionsRequest>,
+        ) -> Result<tonic::Response<super::GetVersionsResponse>, tonic::Status>;
         async fn get_namespaces(
             &self,
             request: tonic::Request<super::GetNamespacesRequest>,
@@ -451,18 +451,18 @@ pub mod bda_server {
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             let inner = self.inner.clone();
             match req.uri().path() {
-                "/bda.BDA/GetRevisions" => {
+                "/bda.BDA/GetVersions" => {
                     #[allow(non_camel_case_types)]
-                    struct GetRevisionsSvc<T: Bda>(pub Arc<T>);
-                    impl<T: Bda> tonic::server::UnaryService<super::GetRevisionsRequest> for GetRevisionsSvc<T> {
-                        type Response = super::GetRevisionsResponse;
+                    struct GetVersionsSvc<T: Bda>(pub Arc<T>);
+                    impl<T: Bda> tonic::server::UnaryService<super::GetVersionsRequest> for GetVersionsSvc<T> {
+                        type Response = super::GetVersionsResponse;
                         type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetRevisionsRequest>,
+                            request: tonic::Request<super::GetVersionsRequest>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).get_revisions(request).await };
+                            let fut = async move { (*inner).get_versions(request).await };
                             Box::pin(fut)
                         }
                     }
@@ -471,7 +471,7 @@ pub mod bda_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
-                        let method = GetRevisionsSvc(inner);
+                        let method = GetVersionsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
                             accept_compression_encodings,

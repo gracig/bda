@@ -5,9 +5,9 @@ import "google/api/annotations.proto";
 import "bda_model.proto";
 
 service BDA {
-    rpc GetRevisions( GetRevisionsRequest ) returns ( GetRevisionsResponse ) {
+    rpc GetVersions( GetVersionsRequest ) returns ( GetVersionsResponse ) {
         option (google.api.http) = {
-            get: "/api/v1/revisions"
+            get: "/api/v1/versions"
         };
     }
     rpc GetNamespaces( GetNamespacesRequest ) returns ( GetNamespacesResponse ) {
@@ -38,12 +38,12 @@ service BDA {
     }
     rpc GetResource( GetResourceRequest ) returns ( Resource ) {
         option (google.api.http) = {
-            get: "/api/v1/resources/{revision}/{kind}/{namespace}/{name}"
+            get: "/api/v1/resources/{version}/{kind}/{namespace}/{name}"
         };
     }
     rpc DelResource( DelResourceRequest ) returns ( DelResourceResponse ) {
         option (google.api.http) = {
-            delete: "/api/v1/resources/{revision}/{kind}/{namespace}/{name}"
+            delete: "/api/v1/resources/{version}/{kind}/{namespace}/{name}"
         };
     }
     rpc PutResource( PutResourceRequest ) returns ( PutResourceResponse ) {
@@ -54,7 +54,7 @@ service BDA {
     }
 }
 
-message GetRevisionsRequest{
+message GetVersionsRequest{
 }
 message GetNamespacesRequest{
 }
@@ -64,8 +64,8 @@ message GetKindsRequest{
 message GetResourcesResponse{
     repeated Resource resources = 1;
 }
-message GetRevisionsResponse{
-    repeated string revisions = 1;
+message GetVersionsResponse{
+    repeated string versions = 1;
 }
 message GetNamespacesResponse{
     repeated string namespaces = 1;
@@ -75,19 +75,19 @@ message GetKindsResponse{
 }
 
 message GetResourcesRequest{
-    string revision = 1;   //blank is latest
+    string version = 1;   //blank is latest
     string namespaces = 2; //all for all or comma separated values. blank is all
     string kinds = 3;      //all for all or comma separated values. blank is all
     string bql = 4;
 }
 message DelResourcesRequest{
-    string revision = 1;   //blank is latest
+    string version = 1;   //blank is latest
     string namespaces = 2; //all for all or comma separated values. blank is all
     string kinds = 3;      //all for all or comma separated values. blank is all
     string bql = 4;
 }
 message GetResourceRequest{
-    string revision = 1;
+    string version = 1;
     string namespace = 2;
     string kind = 3;
     string name = 4;
@@ -99,7 +99,7 @@ message PutResourceResponse{
     int32 updates = 1;
 }
 message DelResourceRequest{
-    string revision = 1;
+    string version = 1;
     string namespace = 2;
     string kind = 3;
     string name = 4;

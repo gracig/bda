@@ -97,10 +97,10 @@ pub fn resource_id_builder(
 }
 
 pub fn resource_id_from_get_request(r: &GetResourceRequest) -> Result<String, String> {
-    return resource_id_builder(&r.revision, &r.namespace, &r.kind, &r.name);
+    return resource_id_builder(&r.version, &r.namespace, &r.kind, &r.name);
 }
 pub fn resource_id_from_del_request(r: &DelResourceRequest) -> Result<String, String> {
-    return resource_id_builder(&r.revision, &r.namespace, &r.kind, &r.name);
+    return resource_id_builder(&r.version, &r.namespace, &r.kind, &r.name);
 }
 
 pub fn resource_id(r: &Resource) -> Result<String, String> {

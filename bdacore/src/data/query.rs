@@ -21,7 +21,7 @@ impl Query {
     pub fn from_get_resources_request(request: &GetResourcesRequest) -> Result<Query, String> {
         bdaql_conjunction(vec![
             bdaql_from_namespaces(&request.namespaces),
-            bdaql_from_version(&request.revision),
+            bdaql_from_version(&request.version),
             bdaql_from_kinds(&request.kinds),
             bdaql_from_bql(&request.bql),
         ])
@@ -37,7 +37,7 @@ impl Query {
     pub fn from_del_resources_request(request: &DelResourcesRequest) -> Result<Query, String> {
         bdaql_conjunction(vec![
             bdaql_from_namespaces(&request.namespaces),
-            bdaql_from_version(&request.revision),
+            bdaql_from_version(&request.version),
             bdaql_from_kinds(&request.kinds),
             bdaql_from_bql(&request.bql),
         ])
