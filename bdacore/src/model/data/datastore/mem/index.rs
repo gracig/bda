@@ -7,9 +7,11 @@ use crate::model::data::{Entity, EntityID, EntityKind};
 use serde_json::{self, json};
 
 type FieldName = String;
-type WorldIndex = OMap<(EntityKind, EntityID), bool>;
-type FieldIndex = OMap<(EntityKind, FieldName, EntityID), bool>;
-type ValueIndex = OMap<(EntityKind, FieldName, Option<Value>, EntityID), bool>;
+type EntitySet = OMap<EntityID, bool>;
+type ValueSet = OMap<Option<Value>, EntitySet>;
+type WorldIndex = OMap<EntityKind, EntitySet>;
+type FieldIndex = OMap<(EntityKind, FieldName), EntitySet>;
+type ValueIndex = OMap<(EntityKind, FieldName), ValueSet>;
 
 pub struct Index {
     world_index: WorldIndex,
@@ -31,66 +33,111 @@ impl Index {
     pub fn index(&mut self, entity: &Entity) -> Result<(), String> {
         match entity {
             Entity::Resource(_, r) => {
-                self.create_index(&entity.id(), &to_field_values(to_json_value(r)?))
+                self.update_indexes(&entity.id(), &to_field_values(to_json_value(r)?))
             }
         }
     }
+
+    pub fn find_all(_kind: EntityKind) {
+        todo!("Return an iterator of unique EntityIDs")
+    }
+
     pub fn has_entity(&self, entity: &Entity) -> bool {
-        self.world_index
-            .get(&(entity.to_kind(), entity.id()))
-            .unwrap_or((false, 0))
-            .0
+        match self.world_index.get(&entity.to_kind()) {
+            Ok((oset, _)) => match oset.get(&entity.id()) {
+                Ok((x, _)) => x,
+                Err(_) => false,
+            },
+            Err(_) => false,
+        }
     }
     pub fn has_field(&self, entity: &Entity, field: &str) -> bool {
-        self.field_index
-            .get(&(entity.to_kind(), field.to_string(), entity.id()))
-            .unwrap_or((false, 0))
-            .0
+        match self.field_index.get(&(entity.to_kind(), field.to_string())) {
+            Ok((id_set, _)) => match id_set.get(&entity.id()) {
+                Ok((b, _)) => b,
+                Err(_) => false,
+            },
+            Err(_) => false,
+        }
     }
     pub fn has_value(&self, entity: &Entity, field: &str, value: &Option<Value>) -> bool {
-        self.value_index
-            .get(&(
-                entity.to_kind(),
-                field.to_string(),
-                value.to_owned(),
-                entity.id(),
-            ))
-            .unwrap_or((false, 0))
-            .0
+        match self.value_index.get(&(entity.to_kind(), field.to_string())) {
+            Ok((vset, _)) => match vset.get(value) {
+                Ok((id_set, _)) => match id_set.get(&entity.id()) {
+                    Ok((b, _)) => b,
+                    Err(_) => false,
+                },
+                Err(_) => false,
+            },
+            Err(_) => false,
+        }
     }
 
-    fn create_index(&mut self, id: &EntityID, values: &Vec<FieldValue>) -> Result<(), String> {
+    fn update_indexes(&mut self, id: &EntityID, values: &Vec<FieldValue>) -> Result<(), String> {
         for v in values {
             //println!("{:?}:{:?}", v.accessor_to_string(), v.value);
-            let world_index = (id.to_kind(), id.clone());
-            let value_index = (
-                id.to_kind(),
-                v.accessor_to_string(),
-                v.value.clone(),
-                id.clone(),
-            );
-            //update world index to be used on [ALL] queries
-            self.world_index
-                .set(world_index.to_owned(), true)
-                .map_err(|op| op.to_string())?;
+            self.update_world_index(id)
+                .and(self.update_value_index(id, &v.accessor_to_string(), &v.value))
+                .and(self.update_field_index(id, &v))?;
+        }
+        Ok(())
+    }
 
-            //Update value index to be used on ord and eq (==,!=, <, <=, >, >=) queries
-            self.value_index
-                .set(value_index.to_owned(), true)
-                .map_err(|op| op.to_string())?;
+    fn update_world_index(&self, id: &EntityID) -> Result<Option<EntitySet>, String> {
+        let id_set = self
+            .world_index
+            .get(&id.to_kind())
+            .unwrap_or((OMap::new(), 0))
+            .0;
 
-            //Update field index to be used on defined predicates
-            let mut cv = v.clone();
-            loop {
-                let field_index = (id.to_kind(), cv.accessor_to_string(), id.clone());
-                self.field_index
-                    .set(field_index, true)
-                    .map_err(|op| op.to_string())?;
-                if cv.accessor.is_empty() {
-                    break;
-                }
-                cv.accessor.pop();
+        Ok(id_set
+            .set(id.clone(), true)
+            .and(self.world_index.set(id.to_kind(), id_set))
+            .map_err(|e| e.to_string())?)
+    }
+
+    fn update_value_index(
+        &self,
+        id: &EntityID,
+        field: &str,
+        value: &Option<Value>,
+    ) -> Result<Option<ValueSet>, String> {
+        let v_set = self
+            .value_index
+            .get(&(id.to_kind(), field.to_string()))
+            .unwrap_or((OMap::new(), 0))
+            .0;
+        let id_set = v_set.get(value).unwrap_or((OMap::new(), 0)).0;
+        Ok(id_set
+            .set(id.clone(), true)
+            .and(v_set.set(value.clone(), id_set))
+            .and(
+                self.value_index
+                    .set((id.to_kind(), field.to_string()), v_set),
+            )
+            .map_err(|e| e.to_string())?)
+    }
+
+    fn update_field_index(&self, id: &EntityID, fv: &FieldValue) -> Result<(), String> {
+        let mut cv = fv.clone();
+        loop {
+            let field = cv.accessor_to_string();
+            let id_set = self
+                .field_index
+                .get(&(id.to_kind(), field.clone()))
+                .unwrap_or((OMap::new(), 0))
+                .0;
+            id_set
+                .set(id.clone(), true)
+                .and(
+                    self.field_index
+                        .set((id.to_kind(), field.to_string()), id_set),
+                )
+                .map_err(|e| e.to_string())?;
+            if cv.accessor.is_empty() {
+                break;
             }
+            cv.accessor.pop();
         }
         Ok(())
     }
