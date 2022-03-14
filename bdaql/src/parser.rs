@@ -16,22 +16,39 @@ enum Step {
     Final,
 }
 
+#[derive(Debug)]
+enum Op {
+    OpenPar,
+    ClosePar,
+    Or,
+    And,
+    Ast(Ast),
+}
+
 pub fn parse(s: &str) -> Result<Ast, String> {
     let mut negate = false;
-    let mut flag_and = false;
-    let mut flag_or = false;
     let mut fname: String = String::from("");
     let mut step = Step::Initial;
-    let mut stack: Vec<Ast> = Vec::new();
+    let mut nodes: Vec<Op> = Vec::new();
     let tokens = scan(s);
     let mut it = tokens.iter().peekable();
-
     while let Some(tok) = scan_ignore_spaces(&mut it) {
         match step {
             Step::Initial => match tok {
+                Token::LtParentheses => {
+                    it.next();
+                    nodes.push(Op::OpenPar)
+                }
                 Token::Not => {
                     it.next();
-                    negate = !negate;
+                    match scan_ignore_spaces(&mut it) {
+                        Some(Token::Ident(_)) => {
+                            negate = !negate;
+                        }
+                        _ => {
+                            return Err(format!("expected IDENT but got {:?}", tok));
+                        }
+                    }
                 }
                 Token::Ident(lit) | Token::Text(lit) => {
                     it.next();
@@ -40,12 +57,12 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 }
                 Token::All => {
                     it.next();
-                    stack.push(Ast::All);
+                    nodes.push(Op::Ast(Ast::All));
                     step = Step::Final
                 }
                 _ => {
                     return Err(format!(
-                        "expected IDENT | TEXT | NOT | ALL but got {:?}",
+                        "expected IDENT | TEXT | ALL | LTParentheses but got {:?}",
                         tok
                     ))
                 }
@@ -85,10 +102,10 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                     step = Step::GteRelation
                 }
                 Token::Or | Token::And | Token::Eof => {
-                    stack.push(Ast::Defined {
+                    nodes.push(Op::Ast(Ast::Defined {
                         fname: fname.clone(),
                         negate: negate,
-                    });
+                    }));
                     step = Step::Final;
                 }
                 _ => {
@@ -101,20 +118,20 @@ pub fn parse(s: &str) -> Result<Ast, String> {
             Step::InRelation => match tok {
                 Token::All => {
                     it.next();
-                    stack.push(Ast::ContainsAll {
+                    nodes.push(Op::Ast(Ast::ContainsAll {
                         fname: fname.clone(),
                         fvalues: scan_values(&mut it)?,
                         negate: negate,
-                    });
+                    }));
                     step = Step::Final
                 }
                 Token::Any => {
                     it.next();
-                    stack.push(Ast::ContainsAny {
+                    nodes.push(Op::Ast(Ast::ContainsAny {
                         fname: fname.clone(),
                         fvalues: scan_values(&mut it)?,
                         negate: negate,
-                    });
+                    }));
                     step = Step::Final
                 }
                 _ => return Err(format!("expected ALL|ANY but got {:?}", tok)),
@@ -122,55 +139,55 @@ pub fn parse(s: &str) -> Result<Ast, String> {
             Step::EqRelation => match tok {
                 Token::Text(t) => {
                     it.next();
-                    stack.push(Ast::Equal {
+                    nodes.push(Op::Ast(Ast::Equal {
                         fname: fname.clone(),
                         fvalue: Some(Value::Text(t)),
                         negate: negate,
-                    });
+                    }));
                     step = Step::Final
                 }
                 Token::Number(n) => {
                     it.next();
-                    stack.push(Ast::Equal {
+                    nodes.push(Op::Ast(Ast::Equal {
                         fname: fname.clone(),
                         fvalue: Some(Value::Number(n)),
                         negate: negate,
-                    });
+                    }));
                     step = Step::Final
                 }
                 Token::True => {
                     it.next();
-                    stack.push(Ast::Equal {
+                    nodes.push(Op::Ast(Ast::Equal {
                         fname: fname.clone(),
                         fvalue: Some(Value::Boolean(true)),
                         negate: negate,
-                    });
+                    }));
                     step = Step::Final
                 }
                 Token::False => {
                     it.next();
-                    stack.push(Ast::Equal {
+                    nodes.push(Op::Ast(Ast::Equal {
                         fname: fname.clone(),
                         fvalue: Some(Value::Boolean(false)),
                         negate: negate,
-                    });
+                    }));
                     step = Step::Final
                 }
                 Token::None => {
                     it.next();
-                    stack.push(Ast::Equal {
+                    nodes.push(Op::Ast(Ast::Equal {
                         fname: fname.clone(),
                         fvalue: None,
                         negate: negate,
-                    });
+                    }));
                     step = Step::Final
                 }
                 Token::Defined => {
                     it.next();
-                    stack.push(Ast::Defined {
+                    nodes.push(Op::Ast(Ast::Defined {
                         fname: fname.clone(),
                         negate: negate,
-                    });
+                    }));
                     step = Step::Final
                 }
                 Token::Not => {
@@ -188,18 +205,18 @@ pub fn parse(s: &str) -> Result<Ast, String> {
             Step::LtRelation => match tok {
                 Token::Text(t) => {
                     it.next();
-                    stack.push(Ast::LessThan {
+                    nodes.push(Op::Ast(Ast::LessThan {
                         fname: fname.clone(),
                         fvalue: Some(Value::Text(t)),
-                    });
+                    }));
                     step = Step::Final
                 }
                 Token::Number(n) => {
                     it.next();
-                    stack.push(Ast::LessThan {
+                    nodes.push(Op::Ast(Ast::LessThan {
                         fname: fname.clone(),
                         fvalue: Some(Value::Number(n)),
-                    });
+                    }));
                     step = Step::Final
                 }
                 _ => return Err(format!("expected TEXT|NUMBER but got {:?}", tok)),
@@ -207,18 +224,18 @@ pub fn parse(s: &str) -> Result<Ast, String> {
             Step::LteRelation => match tok {
                 Token::Text(t) => {
                     it.next();
-                    stack.push(Ast::LessThanOrEqual {
+                    nodes.push(Op::Ast(Ast::LessThanOrEqual {
                         fname: fname.clone(),
                         fvalue: Some(Value::Text(t)),
-                    });
+                    }));
                     step = Step::Final
                 }
                 Token::Number(n) => {
                     it.next();
-                    stack.push(Ast::LessThanOrEqual {
+                    nodes.push(Op::Ast(Ast::LessThanOrEqual {
                         fname: fname.clone(),
                         fvalue: Some(Value::Number(n)),
-                    });
+                    }));
                     step = Step::Final
                 }
                 _ => return Err(format!("expected TEXT|NUMBER but got {:?}", tok)),
@@ -226,18 +243,18 @@ pub fn parse(s: &str) -> Result<Ast, String> {
             Step::GtRelation => match tok {
                 Token::Text(t) => {
                     it.next();
-                    stack.push(Ast::GreaterThan {
+                    nodes.push(Op::Ast(Ast::GreaterThan {
                         fname: fname.clone(),
                         fvalue: Some(Value::Text(t)),
-                    });
+                    }));
                     step = Step::Final
                 }
                 Token::Number(n) => {
                     it.next();
-                    stack.push(Ast::GreaterThan {
+                    nodes.push(Op::Ast(Ast::GreaterThan {
                         fname: fname.clone(),
                         fvalue: Some(Value::Number(n)),
-                    });
+                    }));
                     step = Step::Final
                 }
                 _ => return Err(format!("expected TEXT|NUMBER but got {:?}", tok)),
@@ -245,65 +262,148 @@ pub fn parse(s: &str) -> Result<Ast, String> {
             Step::GteRelation => match tok {
                 Token::Text(t) => {
                     it.next();
-                    stack.push(Ast::GreaterThanOrEqual {
+                    nodes.push(Op::Ast(Ast::GreaterThanOrEqual {
                         fname: fname.clone(),
                         fvalue: Some(Value::Text(t)),
-                    });
+                    }));
                     step = Step::Final
                 }
                 Token::Number(n) => {
                     it.next();
-                    stack.push(Ast::GreaterThanOrEqual {
+                    nodes.push(Op::Ast(Ast::GreaterThanOrEqual {
                         fname: fname.clone(),
                         fvalue: Some(Value::Number(n)),
-                    });
+                    }));
                     step = Step::Final
                 }
                 _ => return Err(format!("expected TEXT|NUMBER but got {:?}", tok)),
             },
-            Step::Final => {
-                if flag_and {
-                    let a = stack.pop().unwrap();
-                    let b = stack.pop().unwrap();
-                    stack.push(Ast::Intersection(Box::new(a), Box::new(b)));
-                    flag_and = false;
+            Step::Final => match tok {
+                Token::RtParentheses => {
+                    it.next();
+                    nodes.push(Op::ClosePar)
                 }
-                match tok {
-                    Token::Eof => {
-                        it.next();
-                        if flag_or {
-                            let a = stack.pop().unwrap();
-                            let b = stack.pop().unwrap();
-                            stack.push(Ast::Union(Box::new(a), Box::new(b)));
-                        }
-                        return match stack.pop() {
-                            Some(ast) => Ok(ast),
-                            None => Err("did not finished well".to_owned()),
-                        };
-                    }
-                    Token::Or => {
-                        it.next();
-                        if flag_or {
-                            let a = stack.pop().unwrap();
-                            let b = stack.pop().unwrap();
-                            stack.push(Ast::Union(Box::new(a), Box::new(b)));
-                        }
-                        flag_or = true;
-                        negate = false;
-                        step = Step::Initial;
-                    }
-                    Token::And => {
-                        it.next();
-                        flag_and = true;
-                        negate = false;
-                        step = Step::Initial;
-                    }
-                    _ => return Err(format!("expected OR|AND|EOF but got {:?}", tok)),
+                Token::LtParentheses => {
+                    it.next();
+                    nodes.push(Op::OpenPar);
+                    step = Step::Initial;
                 }
-            }
+                Token::Or => {
+                    it.next();
+                    nodes.push(Op::Or);
+                    negate = false;
+                    step = Step::Initial;
+                }
+                Token::And => {
+                    it.next();
+                    nodes.push(Op::And);
+                    negate = false;
+                    step = Step::Initial;
+                }
+                Token::Eof => {
+                    println!("{:?}", nodes);
+                    return solve_nodes(&nodes);
+                }
+                _ => {
+                    return Err(format!(
+                        "expected OR|AND|EOF|LTParentheses|RTParenthese but got {:?}",
+                        tok
+                    ))
+                }
+            },
         }
     }
     Err("did not finished well".to_owned())
+}
+
+//https://en.wikipedia.org/wiki/Shunting-yard_algorithm
+fn solve_nodes(nodes: &Vec<Op>) -> Result<Ast, String> {
+    let mut ast_stack: Vec<Ast> = Vec::new();
+    let mut op_stack: Vec<Op> = Vec::new();
+    let mut it = nodes.iter();
+    while let Some(op) = it.next() {
+        match op {
+            Op::Ast(ast) => {
+                ast_stack.push(ast.clone());
+            }
+            Op::OpenPar => {
+                op_stack.push(Op::OpenPar);
+            }
+            Op::ClosePar => {
+                while let Some(o) = op_stack.pop() {
+                    match o {
+                        Op::OpenPar => break,
+                        Op::ClosePar => {
+                            return Err("not expected a close parentehese".to_owned());
+                        }
+                        Op::Or => {
+                            let a = ast_stack.pop().ok_or("expected a value")?;
+                            let b = ast_stack.pop().ok_or("expected a value")?;
+                            ast_stack.push(Ast::Union(Box::new(a), Box::new(b)));
+                        }
+                        Op::And => {
+                            let a = ast_stack.pop().ok_or("expected a value")?;
+                            let b = ast_stack.pop().ok_or("expected a value")?;
+                            ast_stack.push(Ast::Intersection(Box::new(a), Box::new(b)));
+                        }
+                        Op::Ast(_) => {
+                            return Err("not expected an ast".to_owned());
+                        }
+                    }
+                }
+            }
+            Op::Or => {
+                while let Some(o) = op_stack.pop() {
+                    match o {
+                        Op::And => {
+                            let a = ast_stack.pop().ok_or("expected a value")?;
+                            let b = ast_stack.pop().ok_or("expected a value")?;
+                            ast_stack.push(Ast::Intersection(Box::new(a), Box::new(b)));
+                        }
+                        _ => {
+                            op_stack.push(o);
+                            break;
+                        }
+                    }
+                }
+                op_stack.push(Op::Or)
+            }
+            Op::And => {
+                while let Some(o) = op_stack.pop() {
+                    match o {
+                        Op::And => {
+                            let a = ast_stack.pop().ok_or("expected a value")?;
+                            let b = ast_stack.pop().ok_or("expected a value")?;
+                            ast_stack.push(Ast::Intersection(Box::new(a), Box::new(b)));
+                        }
+                        _ => {
+                            op_stack.push(o);
+                            break;
+                        }
+                    }
+                }
+                op_stack.push(Op::And)
+            }
+        }
+    }
+    while let Some(op) = op_stack.pop() {
+        match op {
+            Op::Or => {
+                let a = ast_stack.pop().ok_or("expected a value")?;
+                let b = ast_stack.pop().ok_or("expected a value")?;
+                ast_stack.push(Ast::Union(Box::new(a), Box::new(b)));
+            }
+            Op::And => {
+                let a = ast_stack.pop().ok_or("expected a value")?;
+                let b = ast_stack.pop().ok_or("expected a value")?;
+                ast_stack.push(Ast::Intersection(Box::new(a), Box::new(b)));
+            }
+            _ => {
+                return Err(format!("expected OR | AND but got {:?}", op));
+            }
+        }
+    }
+    ast_stack.pop().ok_or("could not compute ast".to_owned())
 }
 
 fn scan_values<'a, T: Iterator<Item = &'a Token>>(
@@ -877,22 +977,22 @@ mod tests {
     fn test_union_of_three_predicates() {
         assert_eq!(
             Ast::Union(
-                Box::new(Ast::Equal {
-                    fname: "field".to_owned(),
-                    fvalue: Some(Value::Number(42.0)),
-                    negate: false
-                }),
                 Box::new(Ast::Union(
+                    Box::new(Ast::Equal {
+                        fname: "field".to_owned(),
+                        fvalue: Some(Value::Number(42.0)),
+                        negate: false
+                    }),
                     Box::new(Ast::Equal {
                         fname: "field".to_owned(),
                         fvalue: None,
                         negate: false
                     }),
-                    Box::new(Ast::Defined {
-                        fname: "field".to_owned(),
-                        negate: false,
-                    }),
                 )),
+                Box::new(Ast::Defined {
+                    fname: "field".to_owned(),
+                    negate: false,
+                }),
             ),
             parse(r#"field == defined  or  field == null or field == 42"#).unwrap()
         );
@@ -920,6 +1020,30 @@ mod tests {
                 )),
             ),
             parse(r#"field == defined  and  field == null and field == 42"#).unwrap()
+        );
+    }
+    #[test]
+    fn test_intersection_and_union_with_parentheses() {
+        assert_eq!(
+            Ast::Intersection(
+                Box::new(Ast::Union(
+                    Box::new(Ast::Equal {
+                        fname: "field".to_owned(),
+                        fvalue: Some(Value::Number(42.0)),
+                        negate: false
+                    }),
+                    Box::new(Ast::Equal {
+                        fname: "field".to_owned(),
+                        fvalue: None,
+                        negate: false
+                    }),
+                )),
+                Box::new(Ast::Defined {
+                    fname: "field".to_owned(),
+                    negate: false
+                })
+            ),
+            parse(r#"(field == defined ) and  ( field == null or field == 42 ) "#).unwrap()
         );
     }
 }
