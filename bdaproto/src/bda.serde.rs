@@ -1543,7 +1543,7 @@ impl serde::Serialize for Parameter {
             struct_ser.serialize_field("description", &self.description)?;
         }
         if self.kind != 0 {
-            let v = ParameterKind::from_i32(self.kind)
+            let v = parameter::ParameterKind::from_i32(self.kind)
                 .ok_or_else(|| serde::ser::Error::custom(format!("Invalid variant {}", self.kind)))?;
             struct_ser.serialize_field("kind", &v)?;
         }
@@ -1637,7 +1637,7 @@ impl<'de> serde::Deserialize<'de> for Parameter {
                             if kind.is_some() {
                                 return Err(serde::de::Error::duplicate_field("kind"));
                             }
-                            kind = Some(map.next_value::<ParameterKind>()? as i32);
+                            kind = Some(map.next_value::<parameter::ParameterKind>()? as i32);
                         }
                         GeneratedField::DefaultValue => {
                             if default_value.is_some() {
@@ -1658,7 +1658,7 @@ impl<'de> serde::Deserialize<'de> for Parameter {
         deserializer.deserialize_struct("bda.Parameter", FIELDS, GeneratedVisitor)
     }
 }
-impl serde::Serialize for ParameterKind {
+impl serde::Serialize for parameter::ParameterKind {
     #[allow(deprecated)]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1676,7 +1676,7 @@ impl serde::Serialize for ParameterKind {
         serializer.serialize_str(variant)
     }
 }
-impl<'de> serde::Deserialize<'de> for ParameterKind {
+impl<'de> serde::Deserialize<'de> for parameter::ParameterKind {
     #[allow(deprecated)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -1695,7 +1695,7 @@ impl<'de> serde::Deserialize<'de> for ParameterKind {
         struct GeneratedVisitor;
 
         impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
-            type Value = ParameterKind;
+            type Value = parameter::ParameterKind;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(formatter, "expected one of: {:?}", &FIELDS)
@@ -1708,7 +1708,7 @@ impl<'de> serde::Deserialize<'de> for ParameterKind {
                 use std::convert::TryFrom;
                 i32::try_from(v)
                     .ok()
-                    .and_then(ParameterKind::from_i32)
+                    .and_then(parameter::ParameterKind::from_i32)
                     .ok_or_else(|| {
                         serde::de::Error::invalid_value(serde::de::Unexpected::Signed(v), &self)
                     })
@@ -1721,7 +1721,7 @@ impl<'de> serde::Deserialize<'de> for ParameterKind {
                 use std::convert::TryFrom;
                 i32::try_from(v)
                     .ok()
-                    .and_then(ParameterKind::from_i32)
+                    .and_then(parameter::ParameterKind::from_i32)
                     .ok_or_else(|| {
                         serde::de::Error::invalid_value(serde::de::Unexpected::Unsigned(v), &self)
                     })
@@ -1732,13 +1732,13 @@ impl<'de> serde::Deserialize<'de> for ParameterKind {
                 E: serde::de::Error,
             {
                 match value {
-                    "INTEGER" => Ok(ParameterKind::Integer),
-                    "REAL" => Ok(ParameterKind::Real),
-                    "BOOLEAN" => Ok(ParameterKind::Boolean),
-                    "TEXT" => Ok(ParameterKind::Text),
-                    "JSON" => Ok(ParameterKind::Json),
-                    "URL" => Ok(ParameterKind::Url),
-                    "PATH" => Ok(ParameterKind::Path),
+                    "INTEGER" => Ok(parameter::ParameterKind::Integer),
+                    "REAL" => Ok(parameter::ParameterKind::Real),
+                    "BOOLEAN" => Ok(parameter::ParameterKind::Boolean),
+                    "TEXT" => Ok(parameter::ParameterKind::Text),
+                    "JSON" => Ok(parameter::ParameterKind::Json),
+                    "URL" => Ok(parameter::ParameterKind::Url),
+                    "PATH" => Ok(parameter::ParameterKind::Path),
                     _ => Err(serde::de::Error::unknown_variant(value, FIELDS)),
                 }
             }

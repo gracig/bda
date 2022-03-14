@@ -45,10 +45,24 @@ pub struct Parameter {
     pub name: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
     pub description: ::prost::alloc::string::String,
-    #[prost(enumeration = "ParameterKind", tag = "3")]
+    #[prost(enumeration = "parameter::ParameterKind", tag = "3")]
     pub kind: i32,
     #[prost(message, optional, tag = "4")]
     pub default_value: ::core::option::Option<::pbjson_types::Value>,
+}
+/// Nested message and enum types in `Parameter`.
+pub mod parameter {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum ParameterKind {
+        Integer = 0,
+        Real = 1,
+        Boolean = 2,
+        Text = 3,
+        Json = 4,
+        Url = 5,
+        Path = 6,
+    }
 }
 ///Runtime is a resource that describes an environment where procedures can be executed
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -70,17 +84,6 @@ pub mod runtime {
 pub struct Container {
     #[prost(string, tag = "1")]
     pub dockerfile: ::prost::alloc::string::String,
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum ParameterKind {
-    Integer = 0,
-    Real = 1,
-    Boolean = 2,
-    Text = 3,
-    Json = 4,
-    Url = 5,
-    Path = 6,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetRevisionsRequest {

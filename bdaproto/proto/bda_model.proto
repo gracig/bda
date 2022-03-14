@@ -44,17 +44,19 @@ message Parameter {
     string description = 2;
     ParameterKind kind = 3;
     google.protobuf.Value defaultValue = 4;
+    enum ParameterKind {
+        INTEGER = 0;
+        REAL = 1;
+        BOOLEAN = 2;
+        TEXT = 3;
+        JSON = 4;
+        URL = 5;
+        PATH = 6;
+    } 
+    
 }
 
-enum ParameterKind {
-    INTEGER = 0;
-    REAL = 1;
-    BOOLEAN = 2;
-    TEXT = 3;
-    JSON = 4;
-    URL = 5;
-    PATH = 6;
-} 
+
 
 //Runtime is a resource that describes an environment where procedures can be executed
 message Runtime {
