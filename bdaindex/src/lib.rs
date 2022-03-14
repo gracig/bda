@@ -4,7 +4,12 @@ pub mod flatserde;
 use backend::{Batch, IndexKey, IndexValue};
 use bql::{Ast, Value};
 use serde::{de::DeserializeOwned, Serialize};
-use std::{error::Error, fmt::Debug, ops::RangeBounds, sync::Arc};
+use std::{
+    error::Error,
+    fmt::Debug,
+    ops::{Bound, RangeBounds},
+    sync::Arc,
+};
 
 pub struct Index<T: backend::Backend> {
     backend: Arc<T>,
@@ -243,9 +248,10 @@ impl<T: backend::Backend> Index<T> {
                 Ok(ks_iter
                     .filter(|item| {
                         if exclude_start {
-                            match range.clone().start_bound() {
-                                std::ops::Bound::Included(x) => item.key.gt(x),
-                                _ => true,
+                            if let Bound::Included(x) = range.clone().start_bound() {
+                                item.key.ne(x)
+                            } else {
+                                true
                             }
                         } else {
                             true
@@ -254,8 +260,8 @@ impl<T: backend::Backend> Index<T> {
                     .fold(
                         (
                             Vec::new(),
-                            IndexValue::IDStrValue("".to_owned()),
                             IndexValue::IDStrValue("~".to_owned()),
+                            IndexValue::IDStrValue("".to_owned()),
                         ),
                         |(mut vec, min, max), item| {
                             (
@@ -263,8 +269,8 @@ impl<T: backend::Backend> Index<T> {
                                     vec.push(item.key);
                                     vec
                                 },
-                                if item.min.gt(&min) { item.min } else { min },
-                                if item.max.lt(&max) { item.max } else { max },
+                                if item.min.lt(&min) { item.min } else { min },
+                                if item.max.gt(&max) { item.max } else { max },
                             )
                         },
                     ))
@@ -279,7 +285,7 @@ impl<T: backend::Backend> Index<T> {
                                 if stack.len() > 1 {
                                     let a = stack.pop().unwrap();
                                     let b = stack.pop().unwrap();
-                                    stack.push(self.and(a, b));
+                                    stack.push(self.or(a, b));
                                 }
                                 Ok(stack)
                             })

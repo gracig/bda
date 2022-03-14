@@ -1,8 +1,10 @@
 pub mod llrb;
+pub mod lmdb;
 use crate::bql::{Rational, Value as BValue};
 use crate::flatserde::{FlatJsonFieldIterator, FlatJsonValueIterator};
 #[cfg(test)]
 use mockall::{automock, predicate::*};
+use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value as JValue;
 use std::{error::Error, fmt::Debug, ops::RangeBounds};
@@ -41,15 +43,62 @@ pub enum BatchOp {
     Add(IndexKey, IndexValue),
     Del(IndexKey, IndexValue),
 }
-#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Serialize, Deserialize)]
 pub enum IndexKey {
     FieldKey { field: String },
     ValueKey { field: String, value: BValue },
 }
-#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Serialize)]
+impl IndexKey {
+    pub fn serialize(&self) -> Vec<u8> {
+        bincode::serialize(&self).unwrap()
+    }
+    pub fn deserialize(slice: &[u8]) -> Result<Self, Box<dyn Error>> {
+        bincode::deserialize(slice).map_err(|e| Box::new(e) as Box<dyn Error>)
+    }
+
+    pub fn key_bottom(&self) -> Self {
+        match self {
+            IndexKey::FieldKey { field: _ } => IndexKey::bottom(),
+            IndexKey::ValueKey { field, value: _ } => IndexKey::ValueKey {
+                field: field.to_string(),
+                value: BValue::Bottom,
+            },
+        }
+    }
+    pub fn key_top(&self) -> Self {
+        match self {
+            IndexKey::FieldKey { field: _ } => IndexKey::top(),
+            IndexKey::ValueKey { field, value: _ } => IndexKey::ValueKey {
+                field: field.to_string(),
+                value: BValue::Top,
+            },
+        }
+    }
+
+    pub fn bottom() -> Self {
+        IndexKey::FieldKey {
+            field: String::new(),
+        }
+    }
+    pub fn top() -> Self {
+        IndexKey::ValueKey {
+            field: String::from("~"),
+            value: BValue::Top,
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Serialize, Deserialize)]
 pub enum IndexValue {
     IDStrValue(String),
     IDIntValue(usize),
+}
+impl IndexValue {
+    pub fn serialize(&self) -> Vec<u8> {
+        bincode::serialize(&self).unwrap()
+    }
+    pub fn deserialize(slice: &[u8]) -> Result<Self, Box<dyn Error>> {
+        bincode::deserialize(slice).map_err(|e| Box::new(e) as Box<dyn Error>)
+    }
 }
 impl Batch {
     pub fn new() -> Self {

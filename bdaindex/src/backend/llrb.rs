@@ -30,7 +30,7 @@ impl Backend for LLRBBackend {
             super::BatchOp::Del(f, v) => self
                 .llrb
                 .get(&f)
-                .map_err(|e| Box::new(e) as Box<dyn Error>)
+                .or_else(|_| Ok((OMap::new(), 0 as u64)))
                 .and_then(|(id_set, _)| {
                     id_set.remove(&v)?;
                     if id_set.is_empty() {
@@ -78,6 +78,7 @@ impl Backend for LLRBBackend {
     ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
         self.llrb
             .get(key)
+            .or_else(|_| Ok((OMap::new(), 0 as u64)))
             .and_then(|(values, _)| values.range(range))
             .and_then(|items| {
                 Ok(Box::new(items.map(|(v, _)| v)) as Box<dyn Iterator<Item = IndexValue>>)
