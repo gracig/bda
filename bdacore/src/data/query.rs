@@ -19,11 +19,12 @@ impl Query {
         Query { kind, ast }
     }
     pub fn from_get_resources_request(request: &GetResourcesRequest) -> Result<Query, String> {
-        bdaql_conjunction(vec![
-            bdaql_from_namespaces(&request.namespaces),
-            bdaql_from_version(&request.version),
-            bdaql_from_kinds(&request.kinds),
-            bdaql_from_bql(&request.bql),
+        bql_join(vec![
+            bql_from_namespaces(&request.namespaces),
+            bql_from_version(&request.version),
+            bql_from_kinds(&request.kinds),
+            bql_from_names(&request.names),
+            bql_from_str(&request.bql),
         ])
         .ok_or_else(|| format!("could not build query from request {:?}", request))
         .and_then(|ref bql| {
@@ -35,11 +36,12 @@ impl Query {
     }
 
     pub fn from_del_resources_request(request: &DelResourcesRequest) -> Result<Query, String> {
-        bdaql_conjunction(vec![
-            bdaql_from_namespaces(&request.namespaces),
-            bdaql_from_version(&request.version),
-            bdaql_from_kinds(&request.kinds),
-            bdaql_from_bql(&request.bql),
+        bql_join(vec![
+            bql_from_namespaces(&request.namespaces),
+            bql_from_version(&request.version),
+            bql_from_kinds(&request.kinds),
+            bql_from_names(&request.names),
+            bql_from_str(&request.bql),
         ])
         .ok_or_else(|| format!("could not build query from request {:?}", request))
         .and_then(|ref bql| {
@@ -51,7 +53,7 @@ impl Query {
     }
 }
 
-fn bdaql_from_namespaces(s: &str) -> Option<String> {
+pub fn bql_from_namespaces(s: &str) -> Option<String> {
     let mut ns: Vec<String> = Vec::new();
     for n in s.split(",") {
         if n == "" || n == "all" {
@@ -62,14 +64,14 @@ fn bdaql_from_namespaces(s: &str) -> Option<String> {
     }
     Some(format!(".namespace@any[{}]", ns.join(",")))
 }
-fn bdaql_from_version(s: &str) -> Option<String> {
+pub fn bql_from_version(s: &str) -> Option<String> {
     let version = match s.split(",").next() {
         Some(v) if v != "" => v.to_lowercase().replace("'", "\\'"),
-        _ => logic::DEFAULT_REVISION.to_string(),
+        _ => logic::DEFAULT_VERSION.to_string(),
     };
     Some(format!(".version=='{}'", version))
 }
-fn bdaql_from_kinds(s: &str) -> Option<String> {
+pub fn bql_from_kinds(s: &str) -> Option<String> {
     let mut ns: Vec<String> = Vec::new();
     for n in s.split(",") {
         if n == "" || n == "all" {
@@ -80,14 +82,26 @@ fn bdaql_from_kinds(s: &str) -> Option<String> {
     }
     Some(format!("{}", ns.join("||")))
 }
-fn bdaql_from_bql(s: &str) -> Option<String> {
+pub fn bql_from_names(s: &str) -> Option<String> {
+    let mut ns: Vec<String> = Vec::new();
+    for n in s.split(",") {
+        if n == "" {
+            return None;
+        } else {
+            ns.push(format!(".name=='{}'", n.to_lowercase().replace("'", "\'")));
+        }
+    }
+    Some(format!("{}", ns.join("||")))
+}
+
+pub fn bql_from_str(s: &str) -> Option<String> {
     if s == "" {
         None
     } else {
         Some(s.to_string())
     }
 }
-fn bdaql_conjunction(expressions: Vec<Option<String>>) -> Option<String> {
+pub fn bql_join(expressions: Vec<Option<String>>) -> Option<String> {
     let mut vs: Vec<String> = Vec::new();
     for e in expressions {
         match e {
@@ -110,66 +124,73 @@ mod test_super {
 
     #[test]
     fn test_bdaql_and() {
-        let namespaces = bdaql_from_namespaces("");
+        let namespaces = bql_from_namespaces("");
         assert_eq!(namespaces, None);
-        let namespaces = bdaql_from_namespaces("all");
+        let namespaces = bql_from_namespaces("all");
         assert_eq!(namespaces, None);
-        let namespaces = bdaql_from_namespaces("anamespace,all");
+        let namespaces = bql_from_namespaces("anamespace,all");
         assert_eq!(namespaces, None);
 
-        let version = bdaql_from_version("");
+        let version = bql_from_version("");
         assert_eq!(
             version,
             Some(format!(
                 ".version=='{}'",
-                logic::DEFAULT_REVISION.to_string()
+                logic::DEFAULT_VERSION.to_string()
             ))
         );
 
-        let kinds = bdaql_from_kinds("");
+        let kinds = bql_from_kinds("");
         assert_eq!(kinds, None);
-        let kinds = bdaql_from_kinds("function");
+        let kinds = bql_from_kinds("function");
         assert_eq!(kinds, Some(".function".to_string()));
-        let kinds = bdaql_from_kinds("function,runtime.container");
+        let kinds = bql_from_kinds("function,runtime.container");
         assert_eq!(kinds, Some(".function||.runtime.container".to_string()));
 
-        let bdaql = bdaql_from_bql("");
+        let names = bql_from_names("");
+        assert_eq!(names, None);
+        let names = bql_from_names("aname'");
+        assert_eq!(names, Some(".name=='aname\''".to_string()));
+        let names = bql_from_names("namea,nameb");
+        assert_eq!(names, Some(".name=='namea'||.name=='nameb'".to_string()));
+
+        let bdaql = bql_from_str("");
         assert_eq!(bdaql, None);
-        let bdaql = bdaql_from_bql(".name");
+        let bdaql = bql_from_str(".name");
         assert_eq!(bdaql, Some(".name".to_string()));
 
-        let namespaces = bdaql_from_namespaces("ns1,ns2");
+        let namespaces = bql_from_namespaces("ns1,ns2");
         assert_eq!(namespaces, Some(".namespace@any['ns1','ns2']".to_string()));
-        let version = bdaql_from_version("");
+        let version = bql_from_version("");
         assert_eq!(
             version,
             Some(format!(
                 ".version=='{}'",
-                logic::DEFAULT_REVISION.to_string()
+                logic::DEFAULT_VERSION.to_string()
             ))
         );
-        let kinds = bdaql_from_kinds("function,runtime.container");
+        let kinds = bql_from_kinds("function,runtime.container");
         assert_eq!(kinds, Some(".function||.runtime.container".to_string()));
-        let bdaql = bdaql_from_bql("");
+        let bdaql = bql_from_str("");
         assert_eq!(bdaql, None);
-        let and = bdaql_conjunction(vec![namespaces, version, kinds, bdaql]);
+        let and = bql_join(vec![namespaces, version, kinds, bdaql]);
         assert_eq!(
             and,
             Some(format!(
                 "( {} )&&( {} )&&( {} )",
                 ".namespace@any['ns1','ns2']".to_string(),
-                format!(".version=='{}'", logic::DEFAULT_REVISION.to_string()),
+                format!(".version=='{}'", logic::DEFAULT_VERSION.to_string()),
                 ".function||.runtime.container".to_string()
             ))
         );
-        let namespaces = bdaql_from_namespaces("ns1,ns2");
+        let namespaces = bql_from_namespaces("ns1,ns2");
         assert_eq!(namespaces, Some(".namespace@any['ns1','ns2']".to_string()));
-        let and = bdaql_conjunction(vec![namespaces, None, None, None]);
+        let and = bql_join(vec![namespaces, None, None, None]);
         assert_eq!(
             and,
             Some(format!("( {} )", ".namespace@any['ns1','ns2']".to_string()))
         );
-        let and = bdaql_conjunction(vec![None, None, None, None]);
+        let and = bql_join(vec![None, None, None, None]);
         assert_eq!(and, None)
     }
 }

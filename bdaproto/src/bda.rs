@@ -122,7 +122,10 @@ pub struct GetResourcesRequest {
     ///all for all or comma separated values. blank is all
     #[prost(string, tag = "3")]
     pub kinds: ::prost::alloc::string::String,
+    ///all for all or comma separated values. blank is all
     #[prost(string, tag = "4")]
+    pub names: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
     pub bql: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -136,7 +139,10 @@ pub struct DelResourcesRequest {
     ///all for all or comma separated values. blank is all
     #[prost(string, tag = "3")]
     pub kinds: ::prost::alloc::string::String,
+    ///all for all or comma separated values. blank is all
     #[prost(string, tag = "4")]
+    pub names: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
     pub bql: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

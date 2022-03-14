@@ -338,6 +338,9 @@ impl serde::Serialize for DelResourcesRequest {
         if !self.kinds.is_empty() {
             len += 1;
         }
+        if !self.names.is_empty() {
+            len += 1;
+        }
         if !self.bql.is_empty() {
             len += 1;
         }
@@ -350,6 +353,9 @@ impl serde::Serialize for DelResourcesRequest {
         }
         if !self.kinds.is_empty() {
             struct_ser.serialize_field("kinds", &self.kinds)?;
+        }
+        if !self.names.is_empty() {
+            struct_ser.serialize_field("names", &self.names)?;
         }
         if !self.bql.is_empty() {
             struct_ser.serialize_field("bql", &self.bql)?;
@@ -367,6 +373,7 @@ impl<'de> serde::Deserialize<'de> for DelResourcesRequest {
             "version",
             "namespaces",
             "kinds",
+            "names",
             "bql",
         ];
 
@@ -375,6 +382,7 @@ impl<'de> serde::Deserialize<'de> for DelResourcesRequest {
             Version,
             Namespaces,
             Kinds,
+            Names,
             Bql,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
@@ -399,6 +407,7 @@ impl<'de> serde::Deserialize<'de> for DelResourcesRequest {
                             "version" => Ok(GeneratedField::Version),
                             "namespaces" => Ok(GeneratedField::Namespaces),
                             "kinds" => Ok(GeneratedField::Kinds),
+                            "names" => Ok(GeneratedField::Names),
                             "bql" => Ok(GeneratedField::Bql),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
@@ -422,6 +431,7 @@ impl<'de> serde::Deserialize<'de> for DelResourcesRequest {
                 let mut version = None;
                 let mut namespaces = None;
                 let mut kinds = None;
+                let mut names = None;
                 let mut bql = None;
                 while let Some(k) = map.next_key()? {
                     match k {
@@ -443,6 +453,12 @@ impl<'de> serde::Deserialize<'de> for DelResourcesRequest {
                             }
                             kinds = Some(map.next_value()?);
                         }
+                        GeneratedField::Names => {
+                            if names.is_some() {
+                                return Err(serde::de::Error::duplicate_field("names"));
+                            }
+                            names = Some(map.next_value()?);
+                        }
                         GeneratedField::Bql => {
                             if bql.is_some() {
                                 return Err(serde::de::Error::duplicate_field("bql"));
@@ -455,6 +471,7 @@ impl<'de> serde::Deserialize<'de> for DelResourcesRequest {
                     version: version.unwrap_or_default(),
                     namespaces: namespaces.unwrap_or_default(),
                     kinds: kinds.unwrap_or_default(),
+                    names: names.unwrap_or_default(),
                     bql: bql.unwrap_or_default(),
                 })
             }
@@ -1077,6 +1094,9 @@ impl serde::Serialize for GetResourcesRequest {
         if !self.kinds.is_empty() {
             len += 1;
         }
+        if !self.names.is_empty() {
+            len += 1;
+        }
         if !self.bql.is_empty() {
             len += 1;
         }
@@ -1089,6 +1109,9 @@ impl serde::Serialize for GetResourcesRequest {
         }
         if !self.kinds.is_empty() {
             struct_ser.serialize_field("kinds", &self.kinds)?;
+        }
+        if !self.names.is_empty() {
+            struct_ser.serialize_field("names", &self.names)?;
         }
         if !self.bql.is_empty() {
             struct_ser.serialize_field("bql", &self.bql)?;
@@ -1106,6 +1129,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesRequest {
             "version",
             "namespaces",
             "kinds",
+            "names",
             "bql",
         ];
 
@@ -1114,6 +1138,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesRequest {
             Version,
             Namespaces,
             Kinds,
+            Names,
             Bql,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
@@ -1138,6 +1163,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesRequest {
                             "version" => Ok(GeneratedField::Version),
                             "namespaces" => Ok(GeneratedField::Namespaces),
                             "kinds" => Ok(GeneratedField::Kinds),
+                            "names" => Ok(GeneratedField::Names),
                             "bql" => Ok(GeneratedField::Bql),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
@@ -1161,6 +1187,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesRequest {
                 let mut version = None;
                 let mut namespaces = None;
                 let mut kinds = None;
+                let mut names = None;
                 let mut bql = None;
                 while let Some(k) = map.next_key()? {
                     match k {
@@ -1182,6 +1209,12 @@ impl<'de> serde::Deserialize<'de> for GetResourcesRequest {
                             }
                             kinds = Some(map.next_value()?);
                         }
+                        GeneratedField::Names => {
+                            if names.is_some() {
+                                return Err(serde::de::Error::duplicate_field("names"));
+                            }
+                            names = Some(map.next_value()?);
+                        }
                         GeneratedField::Bql => {
                             if bql.is_some() {
                                 return Err(serde::de::Error::duplicate_field("bql"));
@@ -1194,6 +1227,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesRequest {
                     version: version.unwrap_or_default(),
                     namespaces: namespaces.unwrap_or_default(),
                     kinds: kinds.unwrap_or_default(),
+                    names: names.unwrap_or_default(),
                     bql: bql.unwrap_or_default(),
                 })
             }

@@ -6,7 +6,7 @@ const FUNCTION_KIND: &str = "function";
 const RUNTIME_CONTAINER_KIND: &str = "runtime.container";
 const KINDS: [&str; 2] = [FUNCTION_KIND, RUNTIME_CONTAINER_KIND];
 pub const DEFAULT_NAMESPACE: &str = "default";
-pub const DEFAULT_REVISION: &str = "latest";
+pub const DEFAULT_VERSION: &str = "latest";
 pub const DEFAULT_DOCKERFILE: &str = "Dockerfile";
 
 pub fn new_resource_runtime_container(name: &str) -> Resource {
@@ -60,7 +60,7 @@ fn new_resource(name: &str, kind: Option<ResourceKind>) -> Resource {
 
 pub fn defaults(r: &mut Resource) {
     default_string_if_empty(&mut r.namespace, DEFAULT_NAMESPACE);
-    default_string_if_empty(&mut r.version, DEFAULT_REVISION);
+    default_string_if_empty(&mut r.version, DEFAULT_VERSION);
     if let Some(ResourceKind::Runtime(r)) = &mut r.resource_kind {
         if let Some(RuntimeKind::Container(c)) = &mut r.runtime_kind {
             default_string_if_empty(&mut c.dockerfile, DEFAULT_DOCKERFILE);
@@ -128,7 +128,7 @@ mod tests {
     fn test_defaults() {
         let a = new_resource_function("function");
         assert_eq!(a.namespace, DEFAULT_NAMESPACE);
-        assert_eq!(a.version, DEFAULT_REVISION);
+        assert_eq!(a.version, DEFAULT_VERSION);
         let a = new_resource_runtime_container("container");
         if let Some(ResourceKind::Runtime(r)) = a.resource_kind {
             if let Some(RuntimeKind::Container(c)) = r.runtime_kind {

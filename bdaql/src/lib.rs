@@ -4,7 +4,7 @@ mod parser;
 mod scanner;
 
 pub fn from_str(s: &str) -> Result<Ast, String> {
-    return parser::parse(s);
+    parser::parse(s).map_err(|e| format!("error: {} parsing bql: {}", e.to_string(), s))
 }
 
 #[derive(PartialEq, Debug, Clone, PartialOrd)]

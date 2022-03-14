@@ -101,7 +101,7 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                     it.next();
                     step = Step::GteRelation
                 }
-                Token::Or | Token::And | Token::Eof => {
+                Token::Or | Token::And | Token::Eof | Token::RtParentheses => {
                     nodes.push(Op::Ast(Ast::Defined {
                         fname: fname.clone(),
                         negate: negate,
@@ -110,7 +110,7 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 }
                 _ => {
                     return Err(format!(
-                        "expected NOT|IN|EQ|NE|LT|LTE|GT|GTE|OR|AND|EOF but got {:?}",
+                        "expected NOT|IN|EQ|NE|LT|LTE|GT|GTE|OR|AND|EOF|RtParentheses but got {:?}",
                         tok
                     ))
                 }

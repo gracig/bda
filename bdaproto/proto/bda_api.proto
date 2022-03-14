@@ -75,16 +75,18 @@ message GetKindsResponse{
 }
 
 message GetResourcesRequest{
-    string version = 1;   //blank is latest
-    string namespaces = 2; //all for all or comma separated values. blank is all
-    string kinds = 3;      //all for all or comma separated values. blank is all
-    string bql = 4;
+    string version = 1;     //blank is latest
+    string namespaces = 2;  //all for all or comma separated values. blank is all
+    string kinds = 3;       //all for all or comma separated values. blank is all
+    string names = 4;       //all for all or comma separated values. blank is all
+    string bql = 5;
 }
 message DelResourcesRequest{
-    string version = 1;   //blank is latest
-    string namespaces = 2; //all for all or comma separated values. blank is all
-    string kinds = 3;      //all for all or comma separated values. blank is all
-    string bql = 4;
+    string version = 1;     //blank is latest
+    string namespaces = 2;  //all for all or comma separated values. blank is all
+    string kinds = 3;       //all for all or comma separated values. blank is all
+    string names = 4;       //all for all or comma separated values. blank is all
+    string bql = 5;
 }
 message GetResourceRequest{
     string version = 1;
