@@ -1,8 +1,10 @@
+#[derive(PartialEq, Debug, Clone)]
 pub enum Value {
     Number(f64),
     Text(String),
     Boolean(bool),
 }
+#[derive(PartialEq, Debug, Clone)]
 pub enum Ast {
     Intersection(Box<Ast>, Box<Ast>),
     Union(Box<Ast>, Box<Ast>),
