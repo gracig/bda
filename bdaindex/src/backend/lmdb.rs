@@ -1,6 +1,6 @@
-use super::{Backend, IndexKey, IndexValue, KeyScanItem};
+use super::{Backend, IndexKey, IndexValue, IndexValueIterator, KeyScanIterator};
 use core::slice;
-use ffi::{MDB_val, MDB_GET_BOTH, MDB_NEXT, MDB_SET_RANGE};
+use ffi::{MDB_val, MDB_GET_BOTH, MDB_NEXT_DUP, MDB_NEXT_NODUP, MDB_SET_RANGE};
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Transaction, WriteFlags,
 };
@@ -25,7 +25,7 @@ impl LMDBBackend {
                 .open(path)
                 .and_then(|env| {
                     let mut flags = DatabaseFlags::empty();
-                    flags.insert(DatabaseFlags::DUP_SORT); //dup_sort alows multiple values by key
+                    flags.insert(DatabaseFlags::DUP_SORT);
                     let db = env.create_db(None, flags).unwrap();
                     unsafe {
                         let txn = env.begin_rw_txn()?;
@@ -50,20 +50,7 @@ impl LMDBBackend {
         })
     }
 }
-/*
-unsafe fn slice_to_val(slice: Option<&[u8]>) -> ffi::MDB_val {
-    match slice {
-        Some(slice) => ffi::MDB_val {
-            mv_size: slice.len() as size_t,
-            mv_data: slice.as_ptr() as *mut c_void,
-        },
-        None => ffi::MDB_val {
-            mv_size: 0,
-            mv_data: ptr::null_mut(),
-        },
-    }
-}
-*/
+
 #[no_mangle]
 extern "C" fn cmp_index(a: *const MDB_val, b: *const MDB_val) -> i32 {
     let x: Option<IndexKey>;
@@ -83,6 +70,7 @@ extern "C" fn cmp_index(a: *const MDB_val, b: *const MDB_val) -> i32 {
     x.and_then(|x| y.and_then(|y| Some(x.cmp(&y) as i32)))
         .unwrap_or(0)
 }
+
 #[no_mangle]
 extern "C" fn cmp_value(a: *const MDB_val, b: *const MDB_val) -> i32 {
     let x: Option<IndexValue>;
@@ -115,20 +103,13 @@ impl Backend for LMDBBackend {
                     &bincode::serialize(&v).unwrap(),
                     WriteFlags::NO_DUP_DATA,
                 ) {
-                    Ok(_) => {
-                        println!("Adding k {:?} v {:?}", k, v);
-                        Ok(())
-                    }
+                    Ok(_) => Ok(()),
                     Err(e) => match e {
-                        lmdb::Error::KeyExist => {
-                            println!("Ignoring k {:?} v {:?}", k, v);
-                            Ok(())
-                        }
+                        lmdb::Error::KeyExist => Ok(()),
                         _ => Err(e),
                     },
                 },
                 super::BatchOp::Del(k, v) => {
-                    println!("Deleting k {:?} v {:?}", k, v);
                     let mut cursor = tx.open_rw_cursor(self.lmdb)?;
                     match cursor.get(
                         Some(&bincode::serialize(&k).unwrap()),
@@ -143,22 +124,146 @@ impl Backend for LMDBBackend {
                     }
                 }
             })
-            .and_then(|_| {
-                println!("txcommit");
-                tx.commit()
-            })
+            .and_then(|_| tx.commit())
             .map_err(|e| Box::new(e) as Box<dyn Error>)
     }
 
     fn key_scan<R: RangeBounds<super::IndexKey> + 'static>(
         &self,
         range: R,
-    ) -> Result<Box<dyn Iterator<Item = super::KeyScanItem>>, Box<dyn Error>> {
-        println!(
-            "scanning bounds start:{:?} end: {:?}",
-            range.start_bound(),
-            range.end_bound()
-        );
+    ) -> Result<KeyScanIterator, Box<dyn Error>> {
+        Ok(Box::new(KeyScanIter::new(self.env.clone(), self.lmdb, range)?) as KeyScanIterator)
+    }
+
+    fn value_scan<R: RangeBounds<IndexValue> + 'static>(
+        &self,
+        key: &IndexKey,
+        range: R,
+    ) -> Result<IndexValueIterator, Box<dyn Error>> {
+        Ok(
+            Box::new(ValueScanIter::new(self.env.clone(), self.lmdb, key, range)?)
+                as IndexValueIterator,
+        )
+    }
+}
+
+struct ValueScanIter {
+    env: Arc<Environment>,
+    db: Database,
+    key: Vec<u8>,
+    next_val: Option<Option<IndexValue>>,
+    last_val: Option<IndexValue>,
+    last_include: bool,
+}
+impl ValueScanIter {
+    fn new<R: RangeBounds<IndexValue>>(
+        env: Arc<Environment>,
+        db: Database,
+        key: &IndexKey,
+        range: R,
+    ) -> Result<Self, Box<dyn Error>> {
+        let (next_val, last_val, last_include) = match range.start_bound() {
+            Bound::Included(start) | Bound::Excluded(start) => match range.end_bound() {
+                Bound::Included(end) => (Some(Some(start.to_owned())), Some(end.to_owned()), true),
+                Bound::Excluded(end) => (Some(Some(start.to_owned())), Some(end.to_owned()), false),
+                Bound::Unbounded => (Some(Some(start.to_owned())), None, false),
+            },
+            Bound::Unbounded => match range.end_bound() {
+                Bound::Included(end) => (Some(None), Some(end.to_owned()), true),
+                Bound::Excluded(end) => (Some(None), Some(end.to_owned()), false),
+                Bound::Unbounded => (Some(None), None, false),
+            },
+        };
+        Ok(ValueScanIter {
+            env,
+            db,
+            key: key.serialize()?,
+            next_val,
+            last_val,
+            last_include,
+        })
+    }
+}
+
+//implemented in imperative way
+impl Iterator for ValueScanIter {
+    type Item = Result<IndexValue, Box<dyn Error>>;
+    fn next(&mut self) -> Option<Self::Item> {
+        let next_val = match self.next_val.clone() {
+            Some(x) => x,
+            None => return None,
+        };
+        let b_val = match next_val.as_ref() {
+            Some(v) => match v.serialize() {
+                Ok(bv) => Some(bv),
+                Err(e) => return Some(Err(e)),
+            },
+            None => None,
+        };
+        let tx = match self.env.begin_ro_txn() {
+            Ok(tx) => tx,
+            Err(e) => return Some(Err(Box::new(e) as Box<dyn Error>)),
+        };
+        let cursor = match tx.open_ro_cursor(self.db) {
+            Ok(cursor) => cursor,
+            Err(e) => return Some(Err(Box::new(e) as Box<dyn Error>)),
+        };
+        let op = if let None = next_val {
+            MDB_SET_RANGE
+        } else {
+            MDB_GET_BOTH
+        };
+        let actual = match cursor.get(Some(&self.key), b_val.as_ref().map(|v| v as &[u8]), op) {
+            Ok((_, v)) => match IndexValue::deserialize(v) {
+                Ok(v) => v,
+                Err(e) => return Some(Err(e)),
+            },
+            Err(e) => match e {
+                lmdb::Error::NotFound => return None,
+                _ => return Some(Err(Box::new(e) as Box<dyn Error>)),
+            },
+        };
+        let ref b_actual = match actual.serialize() {
+            Ok(v) => v,
+            Err(e) => return Some(Err(e)),
+        };
+        self.next_val = match cursor.get(Some(&self.key), Some(b_actual as &[u8]), MDB_NEXT_DUP) {
+            Ok((_, v)) => match IndexValue::deserialize(v) {
+                Ok(v) => Some(Some(v)),
+                Err(e) => return Some(Err(e)),
+            },
+            Err(e) => match e {
+                lmdb::Error::NotFound => None,
+                _ => return Some(Err(Box::new(e) as Box<dyn Error>)),
+            },
+        };
+        match self.last_val {
+            Some(ref last_val) => {
+                if actual.lt(last_val) || actual.eq(last_val) && self.last_include {
+                    Some(Ok(actual))
+                } else {
+                    self.next_val = None;
+                    None
+                }
+            }
+            None => Some(Ok(actual)),
+        }
+    }
+}
+
+struct KeyScanIter {
+    env: Arc<Environment>,
+    db: Database,
+    next_key: Option<IndexKey>,
+    last_key: IndexKey,
+    last_include: bool,
+}
+impl KeyScanIter {
+    fn new<R: RangeBounds<IndexKey>>(
+        env: Arc<Environment>,
+        db: Database,
+        range: R,
+    ) -> Result<Self, Box<dyn Error>> {
         let (start, last_key, last_include) = match range.start_bound() {
             Bound::Included(start) | Bound::Excluded(start) => match range.end_bound() {
                 Bound::Included(end) => (start.to_owned(), end.to_owned(), true),
@@ -171,522 +276,67 @@ impl Backend for LMDBBackend {
                 Bound::Unbounded => (IndexKey::bottom(), IndexKey::top(), false),
             },
         };
-        Ok(Box::new(KeyScanIter::new(
-            self.env.clone(),
-            self.lmdb,
-            start,
-            last_key,
-            last_include,
-        )?) as Box<dyn Iterator<Item = KeyScanItem>>)
-    }
-
-    fn value_scan<R: RangeBounds<IndexValue> + 'static>(
-        &self,
-        _key: &IndexKey,
-        _range: R,
-    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
-        todo!()
-    }
-}
-
-struct KeyScanIter {
-    env: Arc<Environment>,
-    db: Database,
-    next_key: Option<IndexKey>,
-    next_val: Option<IndexValue>,
-    next_min: Option<IndexValue>,
-    last_key: IndexKey,
-    last_include: bool,
-}
-impl KeyScanIter {
-    fn new(
-        env: Arc<Environment>,
-        db: Database,
-        start: IndexKey,
-        last_key: IndexKey,
-        last_include: bool,
-    ) -> Result<Self, Box<dyn Error>> {
-        println!(
-            "Building iterator start: {:?} last: {:?} include: {:?}",
-            start, last_key, last_include
-        );
         Ok(KeyScanIter {
             env,
             db,
             next_key: Some(start),
-            next_val: None,
-            next_min: None,
             last_key,
             last_include,
         })
     }
 }
+
+//implemented in functional way
 impl Iterator for KeyScanIter {
-    type Item = KeyScanItem;
+    type Item = Result<IndexKey, Box<dyn Error>>;
     fn next(&mut self) -> Option<Self::Item> {
-        if let None = self.next_key {
-            return None;
-        }
-        let tx = self.env.begin_rw_txn().unwrap();
-        let cursor = tx.open_ro_cursor(self.db).unwrap();
-        let mut flag = MDB_SET_RANGE;
-        loop {
-            let current = (
-                self.next_key.clone().unwrap(),
-                self.next_val.clone(),
-                self.next_min.clone(),
-            );
-            let lookup = (
-                Some(current.0.serialize()),
-                current.1.as_ref().map(|v| v.serialize()),
-            );
-            match cursor.get(
-                lookup.0.as_ref().map(|v| v as &[u8]),
-                lookup.1.as_ref().map(|v| v as &[u8]),
-                flag,
-            ) {
-                Err(e) => {
-                    self.next_key = None;
-                    if let lmdb::Error::NotFound = e {
-                        let item = KeyScanItem {
-                            key: current.0,
-                            min: current.2.unwrap(),
-                            max: current.1.unwrap(),
-                        };
-                        if item.key.lt(&self.last_key)
-                            || (item.key.eq(&self.last_key) && self.last_include)
-                        {
-                            self.next_min = self.next_val.clone();
-                            println!("Sending {:?}", item);
-                            return Some(item);
-                        } else {
-                            return None;
-                        }
-                    }
-                    eprintln!("LMDB Error {:?} {:?}", e, current);
-                }
-                Ok((None, _)) => {
-                    println!("not found {:?}", lookup);
-                    self.next_key = None;
-                    return None;
-                }
-                Ok((Some(k), v)) => {
-                    flag = MDB_NEXT;
-                    self.next_key = Some(IndexKey::deserialize(k).unwrap());
-                    self.next_val = Some(IndexValue::deserialize(v).unwrap());
-                    if let None = current.1 {
-                        self.next_min = self.next_val.clone();
-                        continue;
-                    }
-                    if self.next_key.as_ref().unwrap().eq(&current.0) {
-                        continue;
-                    }
-                    let item = KeyScanItem {
-                        key: current.0,
-                        min: current.2.unwrap(),
-                        max: current.1.unwrap(),
-                    };
-                    if item.key.lt(&self.last_key)
-                        || (item.key.eq(&self.last_key) && self.last_include)
-                    {
-                        self.next_min = self.next_val.clone();
-                        println!("Sending {:?}", item);
-                        return Some(item);
-                    } else {
-                        self.next_key = None;
-                        println!("Finish iterator");
-                        return None;
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod test_super {
-    use super::*;
-    use crate::{
-        backend::{Batch, BatchOp},
-        bql::{Rational, Value},
-    };
-    use serde_json::json;
-    use tempdir::TempDir;
-    #[test]
-    fn test_updatea() {
-        //Test BatchOp::Add
-        let add_batch_1 = Batch::add_data(
-            "id1",
-            json!({
-                "keya":true,
-                "keyb":["valb1",],
-                "keyc": {
-                    "keyca": 1 as i64,
-                    "keycb": ["a","b"],
-                    "keycc": 2 as i64, "keycd": ["c","d"]
-                }
-            }),
-        )
-        .unwrap();
-        let add_batch_2 = Batch::add_data(
-            "id2",
-            json!({
-                "2keya":true,
-                "2keyb":["2valb1",],
-            }),
-        )
-        .unwrap();
-
-        //Test BatchOp::Del
-        let del_batch_1 = Batch {
-            items: add_batch_1
-                .iter()
-                .map(|op| {
-                    if let BatchOp::Add(k, v) = op {
-                        BatchOp::Del(k, v)
-                    } else {
-                        panic!("only BatchOp::Add are permitted");
-                    }
-                })
-                .collect(),
-        };
-        let del_batch_2 = Batch {
-            items: add_batch_2
-                .iter()
-                .map(|op| {
-                    if let BatchOp::Add(k, v) = op {
-                        BatchOp::Del(k, v)
-                    } else {
-                        panic!("only BatchOp::Add are permitted");
-                    }
-                })
-                .collect(),
-        };
-        let tmp_dir = TempDir::new("/tmp/lmdb").unwrap();
-        let path = tmp_dir.path();
-        let backend = LMDBBackend::new(path).unwrap();
-        assert_eq!(backend.env.stat().unwrap().entries(), 0);
-        println!("Start adding batch 1");
-        backend.update(add_batch_1.clone()).unwrap();
-        println!("Start adding batch 2");
-        backend.update(add_batch_2.clone()).unwrap();
-        println!("Start removing batch 1");
-        backend.update(del_batch_1.clone()).unwrap();
-        println!("Start removing batch 2");
-        backend.update(del_batch_2.clone()).unwrap();
-        assert_eq!(backend.env.stat().unwrap().entries(), 0);
-    }
-
-    #[test]
-    fn test_keyscan() {
-        //Test keyscan
-        let add_batch_1 = Batch::add_data(
-            "id1",
-            json!({
-                "keya":true,
-                "keyb":["valb1",],
-                "keyc": {
-                    "keyca": 1 as i64,
-                    "keycb": ["a","b"],
-                    "keycc": 2 as i64,
-                    "keycd": ["c","d"]
-                }
-            }),
-        )
-        .unwrap();
-        let add_batch_2 = Batch::add_data(
-            "id2",
-            json!({
-                "keya":true,
-                "keyb":["valb1",],
-            }),
-        )
-        .unwrap();
-        let add_batch_3 = Batch::add_data(
-            "id3",
-            json!({
-                "keya":true,
-                "keyb":["valb1","valb2"],
-            }),
-        )
-        .unwrap();
-        let tmp_dir = TempDir::new("/tmp/lmdb").unwrap();
-        let path = tmp_dir.path();
-        let backend = LMDBBackend::new(path).unwrap();
-        assert_eq!(backend.env.stat().unwrap().entries(), 0);
-        println!("Start adding batch 1");
-        backend.update(add_batch_1.clone()).unwrap();
-        println!("Start adding batch 2");
-        backend.update(add_batch_2.clone()).unwrap();
-        println!("Start adding batch 3");
-        backend.update(add_batch_3.clone()).unwrap();
-
-        let ikey = |k: &str| IndexKey::FieldKey {
-            field: k.to_owned(),
-        };
-        let vkey = |k: &str, v: Value| IndexKey::ValueKey {
-            field: k.to_owned(),
-            value: v,
-        };
-        let ival = |v: &str| IndexValue::IDStrValue(v.to_owned());
-        let fskey = |k: &str, min: Option<&'static str>, max: Option<&'static str>| KeyScanItem {
-            key: ikey(k),
-            min: min.map(|v| ival(v)).unwrap(),
-            max: max.map(|v| ival(v)).unwrap(),
-        };
-        let vskey =
-            |k: &str, v: Value, min: Option<&'static str>, max: Option<&'static str>| KeyScanItem {
-                key: vkey(k, v),
-                min: min.map(|v| ival(v)).unwrap(),
-                max: max.map(|v| ival(v)).unwrap(),
-            };
-
-        //index value scan
-        let range = vkey(".keyb", Value::Bottom)..vkey(".keyb", Value::Top);
-        let mut scan = backend.key_scan(range).unwrap();
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyb",
-                Value::Text("valb1".to_owned()),
-                Some("id1"),
-                Some("id3")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyb",
-                Value::Text("valb2".to_owned()),
-                Some("id3"),
-                Some("id3")
-            ))
-        );
-        assert_eq!(scan.next(), None);
-
-        //inclusive range. (like equal)
-        let range = ikey(".keya")..=ikey(".keya");
-        let mut scan = backend.key_scan(range).unwrap();
-        assert_eq!(scan.next(), Some(fskey(".keya", Some("id1"), Some("id3"))));
-        assert_eq!(scan.next(), None);
-
-        //Field index scan range. (only field indexes)
-        let range = ..vkey("", Value::Bottom);
-        let mut scan = backend.key_scan(range).unwrap();
-        assert_eq!(scan.next(), Some(fskey(".", Some("id1"), Some("id3"))));
-        assert_eq!(scan.next(), Some(fskey(".keya", Some("id1"), Some("id3"))));
-        assert_eq!(scan.next(), Some(fskey(".keyb", Some("id1"), Some("id3"))));
-        assert_eq!(scan.next(), Some(fskey(".keyc", Some("id1"), Some("id1"))));
-        assert_eq!(
-            scan.next(),
-            Some(fskey(".keyc.keyca", Some("id1"), Some("id1")))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(fskey(".keyc.keycb", Some("id1"), Some("id1")))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(fskey(".keyc.keycc", Some("id1"), Some("id1")))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(fskey(".keyc.keycd", Some("id1"), Some("id1")))
-        );
-        assert_eq!(scan.next(), None);
-
-        //Value index scan range. (only value indexes)
-        let range = vkey("", Value::Bottom)..;
-        let mut scan = backend.key_scan(range).unwrap();
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keya",
-                Value::Boolean(true),
-                Some("id1"),
-                Some("id3")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyb",
-                Value::Text("valb1".to_owned()),
-                Some("id1"),
-                Some("id3")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyb",
-                Value::Text("valb2".to_owned()),
-                Some("id3"),
-                Some("id3")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyc.keyca",
-                Value::Rational(Rational::from(1.0)),
-                Some("id1"),
-                Some("id1")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyc.keycb",
-                Value::Text("a".to_owned()),
-                Some("id1"),
-                Some("id1")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyc.keycb",
-                Value::Text("b".to_owned()),
-                Some("id1"),
-                Some("id1")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyc.keycc",
-                Value::Rational(Rational::from(2.0)),
-                Some("id1"),
-                Some("id1")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyc.keycd",
-                Value::Text("c".to_owned()),
-                Some("id1"),
-                Some("id1")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyc.keycd",
-                Value::Text("d".to_owned()),
-                Some("id1"),
-                Some("id1")
-            ))
-        );
-        assert_eq!(scan.next(), None);
-
-        //Full scan range. (everybody, including values)
-        let range = ..;
-        let mut scan = backend.key_scan(range).unwrap();
-        assert_eq!(scan.next(), Some(fskey(".", Some("id1"), Some("id3"))));
-        assert_eq!(scan.next(), Some(fskey(".keya", Some("id1"), Some("id3"))));
-        assert_eq!(scan.next(), Some(fskey(".keyb", Some("id1"), Some("id3"))));
-        assert_eq!(scan.next(), Some(fskey(".keyc", Some("id1"), Some("id1"))));
-        assert_eq!(
-            scan.next(),
-            Some(fskey(".keyc.keyca", Some("id1"), Some("id1")))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(fskey(".keyc.keycb", Some("id1"), Some("id1")))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(fskey(".keyc.keycc", Some("id1"), Some("id1")))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(fskey(".keyc.keycd", Some("id1"), Some("id1")))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keya",
-                Value::Boolean(true),
-                Some("id1"),
-                Some("id3")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyb",
-                Value::Text("valb1".to_owned()),
-                Some("id1"),
-                Some("id3")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyb",
-                Value::Text("valb2".to_owned()),
-                Some("id3"),
-                Some("id3")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyc.keyca",
-                Value::Rational(Rational::from(1.0)),
-                Some("id1"),
-                Some("id1")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyc.keycb",
-                Value::Text("a".to_owned()),
-                Some("id1"),
-                Some("id1")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyc.keycb",
-                Value::Text("b".to_owned()),
-                Some("id1"),
-                Some("id1")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyc.keycc",
-                Value::Rational(Rational::from(2.0)),
-                Some("id1"),
-                Some("id1")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyc.keycd",
-                Value::Text("c".to_owned()),
-                Some("id1"),
-                Some("id1")
-            ))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(vskey(
-                ".keyc.keycd",
-                Value::Text("d".to_owned()),
-                Some("id1"),
-                Some("id1")
-            ))
-        );
-
-        assert_eq!(scan.next(), None);
-        assert_eq!(scan.next(), None);
+        let next_key = self.next_key.clone();
+        next_key.and_then(|next_key| {
+            next_key.serialize().map_or_else(
+                |e| Some(Err(e)),
+                |l_key| {
+                    self.env.begin_rw_txn().map_or_else(
+                        |e| Some(Err(Box::new(e) as Box<dyn Error>)),
+                        |tx| {
+                            tx.open_ro_cursor(self.db).map_or_else(
+                                |e| Some(Err(Box::new(e) as Box<dyn Error>)),
+                                |cursor| match cursor.get(Some(&l_key), None, MDB_SET_RANGE) {
+                                    Ok((Some(k), _)) => IndexKey::deserialize(k).map_or_else(
+                                        |e| Some(Err(e)),
+                                        |key| {
+                                            if key.lt(&self.last_key)
+                                                || key.eq(&self.last_key) && self.last_include
+                                            {
+                                                match cursor.get(Some(k), None, MDB_NEXT_NODUP) {
+                                                    Ok((Some(k), _)) => IndexKey::deserialize(k)
+                                                        .map_or_else(
+                                                            |e| Some(Err(e)),
+                                                            |nkey| {
+                                                                self.next_key = Some(nkey);
+                                                                Some(Ok(key))
+                                                            },
+                                                        ),
+                                                    _ => {
+                                                        self.next_key = None;
+                                                        Some(Ok(key))
+                                                    }
+                                                }
+                                            } else {
+                                                self.next_key = None;
+                                                None
+                                            }
+                                        },
+                                    ),
+                                    _ => {
+                                        self.next_key = None;
+                                        None
+                                    }
+                                },
+                            )
+                        },
+                    )
+                },
+            )
+        })
     }
 }

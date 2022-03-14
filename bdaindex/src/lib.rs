@@ -41,7 +41,7 @@ impl<T: backend::Backend> Index<T> {
     pub fn search(
         &self,
         ast: Box<Ast>,
-    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+    ) -> Result<Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>, Box<dyn Error>> {
         match *ast {
             Ast::Intersection(a, b) => Ok(self.and(self.search(a)?, self.search(b)?)),
             Ast::Union(a, b) => Ok(self.or(self.search(a)?, self.search(b)?)),
@@ -98,21 +98,25 @@ impl<T: backend::Backend> Index<T> {
     pub fn field_values(
         &self,
         field: &str,
-    ) -> Result<Box<dyn Iterator<Item = Value>>, Box<dyn Error>> {
+    ) -> Result<Box<dyn Iterator<Item = Result<Value, Box<dyn Error>>>>, Box<dyn Error>> {
         self.backend
             .key_scan(min_key(field)..max_key(field))
             .and_then(|iter| {
-                Ok(Box::new(iter.filter_map(|ks| match ks.key {
-                    IndexKey::FieldKey { field: _ } => None,
-                    IndexKey::ValueKey { field: _, value } => Some(value),
-                })) as Box<dyn Iterator<Item = Value>>)
+                Ok(Box::new(iter.filter_map(|ks| match ks {
+                    Ok(key) => match key {
+                        IndexKey::FieldKey { field: _ } => None,
+                        IndexKey::ValueKey { field: _, value } => Some(Ok(value)),
+                    },
+                    Err(e) => Some(Err(e)),
+                }))
+                    as Box<dyn Iterator<Item = Result<Value, Box<dyn Error>>>>)
             })
     }
 
     pub fn is_defined(
         &self,
         field: &str,
-    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+    ) -> Result<Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>, Box<dyn Error>> {
         self.backend.value_scan(
             &IndexKey::FieldKey {
                 field: field.to_owned(),
@@ -121,7 +125,9 @@ impl<T: backend::Backend> Index<T> {
         )
     }
 
-    pub fn all(&self) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+    pub fn all(
+        &self,
+    ) -> Result<Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>, Box<dyn Error>> {
         self.is_defined(".")
     }
 
@@ -129,7 +135,7 @@ impl<T: backend::Backend> Index<T> {
         &self,
         field: &str,
         value: &Value,
-    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+    ) -> Result<Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>, Box<dyn Error>> {
         self.range(min_key(field)..vkey(field, value), true)
     }
 
@@ -137,7 +143,7 @@ impl<T: backend::Backend> Index<T> {
         &self,
         field: &str,
         value: &Value,
-    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+    ) -> Result<Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>, Box<dyn Error>> {
         self.range(min_key(field)..=vkey(field, value), true)
     }
 
@@ -145,7 +151,7 @@ impl<T: backend::Backend> Index<T> {
         &self,
         field: &str,
         value: &Value,
-    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+    ) -> Result<Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>, Box<dyn Error>> {
         self.range(vkey(field, value)..max_key(field), true)
     }
 
@@ -153,7 +159,7 @@ impl<T: backend::Backend> Index<T> {
         &self,
         field: &str,
         value: &Value,
-    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+    ) -> Result<Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>, Box<dyn Error>> {
         self.range(vkey(field, value)..max_key(field), false)
     }
 
@@ -161,7 +167,7 @@ impl<T: backend::Backend> Index<T> {
         &self,
         field: &str,
         value: &Value,
-    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+    ) -> Result<Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>, Box<dyn Error>> {
         self.range(vkey(field, value)..=vkey(field, value), false)
     }
 
@@ -169,7 +175,7 @@ impl<T: backend::Backend> Index<T> {
         &self,
         field: &str,
         values: &Vec<Value>,
-    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+    ) -> Result<Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>, Box<dyn Error>> {
         values
             .into_iter()
             .try_fold(Vec::new(), |mut stack, value| {
@@ -190,7 +196,7 @@ impl<T: backend::Backend> Index<T> {
         &self,
         field: &str,
         values: &Vec<Value>,
-    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+    ) -> Result<Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>, Box<dyn Error>> {
         values
             .into_iter()
             .try_fold(Vec::new(), |mut stack, value| {
@@ -209,31 +215,31 @@ impl<T: backend::Backend> Index<T> {
 
     pub fn and(
         &self,
-        a: Box<dyn Iterator<Item = IndexValue>>,
-        b: Box<dyn Iterator<Item = IndexValue>>,
-    ) -> Box<dyn Iterator<Item = IndexValue>> {
+        a: Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>,
+        b: Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>,
+    ) -> Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>> {
         Box::new(IndexValueMerge::new(SetOperation::And, a, b))
     }
 
     pub fn or(
         &self,
-        a: Box<dyn Iterator<Item = IndexValue>>,
-        b: Box<dyn Iterator<Item = IndexValue>>,
-    ) -> Box<dyn Iterator<Item = IndexValue>> {
+        a: Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>,
+        b: Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>,
+    ) -> Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>> {
         Box::new(IndexValueMerge::new(SetOperation::Or, a, b))
     }
     pub fn diff(
         &self,
-        a: Box<dyn Iterator<Item = IndexValue>>,
-        b: Box<dyn Iterator<Item = IndexValue>>,
-    ) -> Box<dyn Iterator<Item = IndexValue>> {
+        a: Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>,
+        b: Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>,
+    ) -> Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>> {
         Box::new(IndexValueMerge::new(SetOperation::Diff, a, b))
     }
     pub fn complement(
         &self,
-        a: Box<dyn Iterator<Item = IndexValue>>,
-        b: Box<dyn Iterator<Item = IndexValue>>,
-    ) -> Box<dyn Iterator<Item = IndexValue>> {
+        a: Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>,
+        b: Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>,
+    ) -> Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>> {
         Box::new(IndexValueMerge::new(SetOperation::Diff, b, a))
     }
 
@@ -241,59 +247,38 @@ impl<T: backend::Backend> Index<T> {
         &self,
         range: R,
         exclude_start: bool,
-    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
-        self.backend
-            .key_scan(range.clone())
-            .and_then(|ks_iter| {
-                Ok(ks_iter
-                    .filter(|item| {
+    ) -> Result<Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>, Box<dyn Error>> {
+        self.backend.key_scan(range.clone()).and_then(|ks_iter| {
+            ks_iter
+                .filter(|item| match item {
+                    Ok(item) => {
                         if exclude_start {
                             if let Bound::Included(x) = range.clone().start_bound() {
-                                item.key.ne(x)
+                                item.ne(x)
                             } else {
                                 true
                             }
                         } else {
                             true
                         }
+                    }
+                    Err(_) => true,
+                })
+                .try_fold(Vec::new(), |mut stack, key| {
+                    key.and_then(|ref key| {
+                        self.backend.value_scan(key, ..).and_then(|vs_iter| {
+                            stack.push(vs_iter);
+                            if stack.len() > 1 {
+                                let a = stack.pop().unwrap();
+                                let b = stack.pop().unwrap();
+                                stack.push(self.or(a, b));
+                            }
+                            Ok(stack)
+                        })
                     })
-                    .fold(
-                        (
-                            Vec::new(),
-                            IndexValue::IDStrValue("~".to_owned()),
-                            IndexValue::IDStrValue("".to_owned()),
-                        ),
-                        |(mut vec, min, max), item| {
-                            (
-                                {
-                                    vec.push(item.key);
-                                    vec
-                                },
-                                if item.min.lt(&min) { item.min } else { min },
-                                if item.max.gt(&max) { item.max } else { max },
-                            )
-                        },
-                    ))
-            })
-            .and_then(|(keys, min, max)| {
-                keys.into_iter()
-                    .try_fold(Vec::new(), |mut stack, ref key| {
-                        self.backend
-                            .value_scan(key, min.clone()..=max.clone())
-                            .and_then(|vs_iter| {
-                                stack.push(vs_iter);
-                                if stack.len() > 1 {
-                                    let a = stack.pop().unwrap();
-                                    let b = stack.pop().unwrap();
-                                    stack.push(self.or(a, b));
-                                }
-                                Ok(stack)
-                            })
-                    })
-                    .and_then(|mut stack| {
-                        Ok(stack.pop().unwrap_or(Box::new(Vec::new().into_iter())))
-                    })
-            })
+                })
+                .and_then(|mut stack| Ok(stack.pop().unwrap_or(Box::new(Vec::new().into_iter()))))
+        })
     }
 }
 
@@ -322,8 +307,8 @@ enum SetOperation {
     Diff,
 }
 pub struct IndexValueMerge {
-    iter_a: Box<dyn Iterator<Item = IndexValue>>,
-    iter_b: Box<dyn Iterator<Item = IndexValue>>,
+    iter_a: Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>,
+    iter_b: Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>,
     read_a: bool,
     read_b: bool,
     next_a: Option<IndexValue>,
@@ -334,8 +319,8 @@ pub struct IndexValueMerge {
 impl IndexValueMerge {
     fn new(
         set_op: SetOperation,
-        iter_a: Box<dyn Iterator<Item = IndexValue>>,
-        iter_b: Box<dyn Iterator<Item = IndexValue>>,
+        iter_a: Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>,
+        iter_b: Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>,
     ) -> Self {
         IndexValueMerge {
             set_op,
@@ -350,19 +335,41 @@ impl IndexValueMerge {
 }
 
 impl Iterator for IndexValueMerge {
-    type Item = IndexValue;
+    type Item = Result<IndexValue, Box<dyn Error>>;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if self.read_a {
-                self.next_a = self.iter_a.next();
-                if self.next_a == None {
-                    self.read_a = false;
+                let a = self.iter_a.next();
+                match a {
+                    Some(Ok(x)) => self.next_a = Some(x),
+                    Some(Err(e)) => {
+                        self.next_a = None;
+                        self.next_b = None;
+                        self.read_a = false;
+                        self.read_b = false;
+                        return Some(Err(e));
+                    }
+                    None => {
+                        self.read_a = false;
+                        self.next_a = None;
+                    }
                 }
             }
             if self.read_b {
-                self.next_b = self.iter_b.next();
-                if self.next_b == None {
-                    self.read_b = false;
+                let b = self.iter_b.next();
+                match b {
+                    Some(Ok(x)) => self.next_b = Some(x),
+                    Some(Err(e)) => {
+                        self.next_a = None;
+                        self.next_b = None;
+                        self.read_a = false;
+                        self.read_b = false;
+                        return Some(Err(e));
+                    }
+                    None => {
+                        self.read_b = false;
+                        self.next_b = None;
+                    }
                 }
             }
             match (&self.next_a, &self.next_b) {
@@ -372,7 +379,7 @@ impl Iterator for IndexValueMerge {
                     self.read_b = true;
                     match self.set_op {
                         SetOperation::And | SetOperation::Diff => {}
-                        SetOperation::Or => return Some(b.clone()),
+                        SetOperation::Or => return Some(Ok(b.clone())),
                     }
                 }
                 (Some(a), None) => {
@@ -380,7 +387,7 @@ impl Iterator for IndexValueMerge {
                     self.read_b = false;
                     match self.set_op {
                         SetOperation::And => {}
-                        SetOperation::Or | SetOperation::Diff => return Some(a.clone()),
+                        SetOperation::Or | SetOperation::Diff => return Some(Ok(a.clone())),
                     }
                 }
                 (Some(a), Some(b)) if a < b => {
@@ -388,7 +395,7 @@ impl Iterator for IndexValueMerge {
                     self.read_b = false;
                     match self.set_op {
                         SetOperation::And => {}
-                        SetOperation::Or | SetOperation::Diff => return Some(a.clone()),
+                        SetOperation::Or | SetOperation::Diff => return Some(Ok(a.clone())),
                     }
                 }
                 (Some(a), Some(b)) if a > b => {
@@ -396,7 +403,7 @@ impl Iterator for IndexValueMerge {
                     self.read_b = true;
                     match self.set_op {
                         SetOperation::And | SetOperation::Diff => {}
-                        SetOperation::Or => return Some(b.clone()),
+                        SetOperation::Or => return Some(Ok(b.clone())),
                     }
                 }
                 (Some(a), Some(_)) => {
@@ -404,7 +411,7 @@ impl Iterator for IndexValueMerge {
                     self.read_b = true;
                     match self.set_op {
                         SetOperation::Diff => {}
-                        SetOperation::And | SetOperation::Or => return Some(a.clone()),
+                        SetOperation::And | SetOperation::Or => return Some(Ok(a.clone())),
                     }
                 }
             }

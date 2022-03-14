@@ -22,3 +22,4 @@ futures-core = "0.3"
 tokio-stream = "0.1"
 clap = { version = "3.0", features = ["derive"] }
 url = "2.2"
+shellexpand="2.1"

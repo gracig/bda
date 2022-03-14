@@ -5,18 +5,20 @@ use serde::{
     de::{self, Visitor},
     Deserialize, Deserializer, Serialize,
 };
+use serde_json::Value as JValue;
 use std::{
     cmp::Ordering,
     fmt::{self, Display},
+    hash::Hash,
     num::ParseFloatError,
     str::FromStr,
 };
 
 pub fn from_str(s: &str) -> Result<Ast, String> {
-    parser::parse(s).map_err(|e| format!("error: {} parsing bql: {}", e.to_string(), s))
+    parser::parse(s)
 }
 
-#[derive(PartialEq, Debug, Clone, PartialOrd, Eq, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Clone, PartialOrd, Eq, Serialize, Deserialize, Hash)]
 pub enum Value {
     Bottom,
     Rational(Rational),
@@ -70,10 +72,31 @@ pub enum Ast {
     },
 }
 
+impl Value {
+    pub fn from_json(json: JValue) -> Self {
+        match json {
+            JValue::Bool(vv) => Value::Boolean(vv),
+            JValue::Number(vv) => match vv.as_f64() {
+                Some(n) => Value::Rational(Rational::from(n)),
+                None => Value::Rational(Rational::from(f64::NAN)),
+            },
+            JValue::String(vv) => Value::Text(vv),
+            _ => Value::Bottom,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialOrd)]
 pub struct Rational {
     pub value: f64,
 }
+
+impl Hash for Rational {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.value.to_bits().hash(state);
+    }
+}
+
 impl PartialEq for Rational {
     fn eq(&self, other: &Self) -> bool {
         if self.value.is_nan() && other.value.is_nan() {

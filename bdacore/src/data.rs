@@ -2,23 +2,26 @@ pub mod datastore;
 pub mod query;
 
 use crate::{data::query::Query, logic};
-use bdaindex::bql::{Rational, Value};
+use bdaindex::bql::Value;
 use bdaproto::Resource;
-use std::{fmt::Debug, sync::Arc};
+use std::{error::Error, fmt::Debug, sync::Arc};
 
 #[cfg(test)]
 use mockall::{automock, predicate::*};
 
+type EntityIDIterator = Box<dyn Iterator<Item = Result<EntityID, Box<dyn Error>>>>;
+type ValueIterator = Box<dyn Iterator<Item = Result<Value, Box<dyn Error>>>>;
+
 #[cfg_attr(test, automock)]
 pub trait Datastore {
-    fn get<'a>(&self, id: &'a EntityID) -> Result<Option<Entity>, String>;
-    fn set(&self, action: Op) -> Result<Op, String>;
-    fn search<'a>(&self, query: &'a Query) -> Result<Box<dyn Iterator<Item = EntityID>>, String>;
+    fn get<'a>(&self, id: &'a EntityID) -> Result<Option<Entity>, Box<dyn Error>>;
+    fn set(&self, action: Op) -> Result<Op, Box<dyn Error>>;
+    fn search<'a>(&self, query: &'a Query) -> Result<EntityIDIterator, Box<dyn Error>>;
     fn values<'a>(
         &self,
         kind: &'a EntityKind,
         field: &'a str,
-    ) -> Result<Box<dyn Iterator<Item = Value>>, String>;
+    ) -> Result<ValueIterator, Box<dyn Error>>;
 }
 
 pub fn new(datastore: Arc<dyn Datastore + Sync + Send>) -> Data {
@@ -73,11 +76,11 @@ impl Data {
         Data { datastore }
     }
 
-    fn get<'a>(&self, id: &'a EntityID) -> Result<Option<Entity>, String> {
+    fn get<'a>(&self, id: &'a EntityID) -> Result<Option<Entity>, Box<dyn Error>> {
         self.datastore.get(id)
     }
 
-    pub fn del<'a>(&self, id: &'a EntityID) -> Result<Option<Op>, String> {
+    pub fn del<'a>(&self, id: &'a EntityID) -> Result<Option<Op>, Box<dyn Error>> {
         match self.datastore.get(id)? {
             None => Ok(None),
             Some(old) => Ok(Some(self.datastore.set(Op::Delete {
@@ -86,7 +89,7 @@ impl Data {
             })?)),
         }
     }
-    fn put<'a>(&self, new: &Entity) -> Result<Option<Op>, String> {
+    fn put<'a>(&self, new: &Entity) -> Result<Option<Op>, Box<dyn Error>> {
         match new {
             Entity::Resource(id, _) => match self.datastore.get(id)? {
                 None => Ok(Some(self.datastore.set(Op::Create { new: new.clone() })?)),
@@ -104,7 +107,7 @@ impl Data {
         }
     }
 
-    pub fn get_resource<'a>(&self, id: &'a EntityID) -> Result<Option<Resource>, String> {
+    pub fn get_resource<'a>(&self, id: &'a EntityID) -> Result<Option<Resource>, Box<dyn Error>> {
         self.get(id).map(|oe| {
             oe.map(|entity| match entity {
                 Entity::Resource(_, r) => r,
@@ -112,7 +115,7 @@ impl Data {
         })
     }
 
-    pub fn put_resource<'a>(&self, r: &Resource) -> Result<Option<Op>, String> {
+    pub fn put_resource<'a>(&self, r: &Resource) -> Result<Option<Op>, Box<dyn Error>> {
         let mut validated = r.to_owned();
         logic::defaults(&mut validated);
         self.put(&Entity::Resource(
@@ -121,31 +124,38 @@ impl Data {
         ))
     }
 
-    pub fn search<'a>(
-        &self,
-        query: &'a Query,
-    ) -> Result<Box<dyn Iterator<Item = EntityID>>, String> {
+    pub fn search<'a>(&self, query: &'a Query) -> Result<EntityIDIterator, Box<dyn Error>> {
         self.datastore.search(query)
     }
 
-    pub fn ids<'a>(&self, query: &'a Query) -> Result<Vec<EntityID>, String> {
-        Ok(self.search(query)?.collect())
+    pub fn ids<'a>(&self, query: &'a Query) -> Result<Vec<EntityID>, Box<dyn Error>> {
+        self.search(query).and_then(|mut iter| {
+            iter.try_fold(Vec::new(), |mut acc, item| {
+                item.and_then(|id| {
+                    acc.push(id);
+                    Ok(acc)
+                })
+            })
+        })
     }
 
-    pub fn entities<'a>(&self, query: &'a Query) -> Result<Vec<Entity>, String> {
-        Ok(self
-            .search(query)?
-            .filter_map(|ref id| self.datastore.get(id).ok()?)
-            .collect())
-    }
-
-    pub fn resources<'a>(&self, query: &'a Query) -> Result<Vec<Resource>, String> {
+    pub fn resources<'a>(&self, query: &'a Query) -> Result<Vec<Resource>, Box<dyn Error>> {
         match query.kind {
-            EntityKind::Resource => Ok(self
-                .search(query)?
-                .filter_map(|ref id| self.datastore.get(id).ok()?)
-                .map(|Entity::Resource(_, r)| r)
-                .collect()),
+            EntityKind::Resource => self.search(query).and_then(|mut iter| {
+                iter.try_fold(Vec::new(), |mut acc, item| {
+                    item.and_then(|ref id| {
+                        self.datastore.get(id).and_then(|r| match r {
+                            Some(e) => match e {
+                                Entity::Resource(_, r) => {
+                                    acc.push(r);
+                                    Ok(acc)
+                                }
+                            },
+                            None => Err(format!("resource not found for id: {:?}", id))?,
+                        })
+                    })
+                })
+            }),
         }
     }
 
@@ -153,7 +163,7 @@ impl Data {
         &self,
         kind: &'a EntityKind,
         field: &'a str,
-    ) -> Result<Box<dyn Iterator<Item = Value>>, String> {
+    ) -> Result<ValueIterator, Box<dyn Error>> {
         self.datastore.values(kind, field)
     }
 
@@ -161,63 +171,56 @@ impl Data {
         &self,
         kind: &'a EntityKind,
         field: &'a str,
-    ) -> Result<Box<dyn Iterator<Item = String>>, String> {
-        let iter = self
-            .datastore
-            .values(kind, field)?
-            .filter_map(|ov| match ov {
-                Value::Rational(vv) => Some(vv.to_string()),
-                Value::Text(vv) => Some(vv),
-                Value::Boolean(vv) => Some(vv.to_string()),
-                Value::Integral(vv) => Some(vv.to_string()),
-                Value::Bottom => None,
-                Value::Top => None,
-            });
-        Ok(Box::new(iter))
+    ) -> Result<Box<dyn Iterator<Item = Result<String, Box<dyn Error>>>>, Box<dyn Error>> {
+        self.datastore.values(kind, field).and_then(|iter| {
+            Ok(Box::new(iter.filter_map(|rv| match rv {
+                Ok(v) => match v {
+                    Value::Rational(vv) => Some(Ok(vv.to_string())),
+                    Value::Text(vv) => Some(Ok(vv)),
+                    Value::Boolean(vv) => Some(Ok(vv.to_string())),
+                    Value::Integral(vv) => Some(Ok(vv.to_string())),
+                    Value::Bottom => None,
+                    Value::Top => None,
+                },
+                Err(e) => Some(Err(e)),
+            }))
+                as Box<dyn Iterator<Item = Result<String, Box<dyn Error>>>>)
+        })
     }
 
-    pub fn values_as_number<'a>(
+    pub fn values_as_f64<'a>(
         &self,
         kind: &'a EntityKind,
         field: &'a str,
-    ) -> Result<Box<dyn Iterator<Item = Rational>>, String> {
-        let iter = self
-            .datastore
-            .values(kind, field)?
-            .filter_map(|ov| match ov {
-                Value::Rational(vv) => Some(vv),
-                Value::Text(vv) => vv.parse::<Rational>().ok(),
-                Value::Boolean(vv) => {
-                    if vv {
-                        Some(Rational::from(1.0 as f64))
-                    } else {
-                        Some(Rational::from(0.0 as f64))
-                    }
-                }
-                Value::Integral(vv) => Some(Rational::from(vv as f64)),
-                Value::Bottom => None,
-                Value::Top => None,
-            });
-        Ok(Box::new(iter))
+    ) -> Result<Box<dyn Iterator<Item = Result<f64, Box<dyn Error>>>>, Box<dyn Error>> {
+        self.datastore.values(kind, field).and_then(|iter| {
+            Ok(Box::new(iter.filter_map(|rv| match rv {
+                Ok(v) => match v {
+                    Value::Rational(vv) => Some(Ok(vv.value)),
+                    Value::Integral(vv) => Some(Ok(vv as f64)),
+                    _ => None,
+                },
+                Err(e) => Some(Err(e)),
+            }))
+                as Box<dyn Iterator<Item = Result<f64, Box<dyn Error>>>>)
+        })
     }
 
     pub fn values_as_bool<'a>(
         &self,
         kind: &'a EntityKind,
         field: &'a str,
-    ) -> Result<Box<dyn Iterator<Item = bool>>, String> {
-        let iter = self
-            .datastore
-            .values(kind, field)?
-            .filter_map(|ov| match ov {
-                Value::Rational(vv) => Some(vv != Rational::from(0.0 as f64) && !vv.value.is_nan()),
-                Value::Text(vv) => vv.parse::<bool>().ok(),
-                Value::Boolean(vv) => Some(vv),
-                Value::Integral(vv) => Some(vv != 0),
-                Value::Bottom => None,
-                Value::Top => None,
-            });
-        Ok(Box::new(iter))
+    ) -> Result<Box<dyn Iterator<Item = Result<bool, Box<dyn Error>>>>, Box<dyn Error>> {
+        self.datastore.values(kind, field).and_then(|iter| {
+            Ok(Box::new(iter.filter_map(|rv| match rv {
+                Ok(v) => match v {
+                    Value::Boolean(vv) => Some(Ok(vv)),
+                    _ => None,
+                },
+                Err(e) => Some(Err(e)),
+            }))
+                as Box<dyn Iterator<Item = Result<bool, Box<dyn Error>>>>)
+        })
     }
 }
 
@@ -239,17 +242,26 @@ mod test_super {
         let entityb = EntityID::ResourceID("b".to_owned());
         let items = vec![entitya.clone(), entityb.clone(), entityb.clone()];
         let items2 = vec![entitya.clone(), entitya.clone(), entityb.clone()];
-        let mut set = Box::new(items.clone().into_iter());
-        let search_set = Box::new(items2.clone().into_iter());
+        let mut set = Box::new(items.clone().into_iter().map(|x| Ok(x))) as EntityIDIterator;
+        let search_set = Box::new(items2.clone().into_iter().map(|x| Ok(x)));
         mock.expect_search()
             .with(eq(q.clone()))
             .times(1)
             .returning(move |_| Ok(Box::new(search_set.clone())));
         let data = new(Arc::new(mock));
         let mut answer = data.search(&q).unwrap();
-        assert_eq!(set.next(), answer.next());
-        assert_ne!(set.next(), answer.next());
-        assert_eq!(set.next(), answer.next());
+        assert_eq!(
+            set.next().unwrap().unwrap(),
+            answer.next().unwrap().unwrap()
+        );
+        assert_ne!(
+            set.next().unwrap().unwrap(),
+            answer.next().unwrap().unwrap()
+        );
+        assert_eq!(
+            set.next().unwrap().unwrap(),
+            answer.next().unwrap().unwrap()
+        );
     }
 
     #[test]
