@@ -190,6 +190,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bdakvstore"
+version = "0.1.0"
+
+[[package]]
 name = "bdaproto"
 version = "0.1.0"
 dependencies = [

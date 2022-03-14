@@ -20,7 +20,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::{async_trait, Response, Status};
 
 fn _lmdb() -> impl Backend {
-    let s = shellexpand::tilde("~/.bda/data").to_string();
+    let s = shellexpand::tilde("~/.bda/index").to_string();
     let path = Path::new(&s);
     fs::create_dir_all(path).unwrap();
     LMDBBackend::new(path).unwrap()

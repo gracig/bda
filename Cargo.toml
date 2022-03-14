@@ -4,6 +4,7 @@ members = [
     "bdaproto",
     "bdacore",
     "bdaindex",
+    "bdakvstore",
     "bdadatastore",
     "bdaengine",
     "bdacli",
