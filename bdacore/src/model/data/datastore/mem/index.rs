@@ -15,21 +15,6 @@ pub struct Index {
     value_index: ValueIndex,
 }
 
-pub struct EntityIDIter {
-    iter: Option<Iter<EntityID, bool>>,
-}
-
-impl Iterator for EntityIDIter {
-    type Item = EntityID;
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if let (id, true) = self.iter.as_mut()?.next()? {
-                return Some(id);
-            }
-        }
-    }
-}
-
 pub fn new() -> Index {
     Index::new()
 }
@@ -49,39 +34,77 @@ impl Index {
             }
         }
     }
-
-    pub fn with_kind(&self, kind: &EntityKind) -> EntityIDIter {
-        EntityIDIter {
+    pub fn with_kind(&self, kind: &EntityKind) -> Box<dyn Iterator<Item = EntityID>> {
+        Box::new(EntityIDIter {
             iter: self
                 .world_index
                 .get(kind)
                 .ok()
                 .and_then(|id_set| id_set.0.iter().ok()),
-        }
+        })
     }
-    pub fn with_field(&self, kind: &EntityKind, field: &str) -> EntityIDIter {
-        EntityIDIter {
+    pub fn with_field(&self, kind: &EntityKind, field: &str) -> Box<dyn Iterator<Item = EntityID>> {
+        Box::new(EntityIDIter {
             iter: self
                 .field_index
                 .get(&(kind.to_owned(), field.to_string()))
                 .ok()
                 .and_then(|id_set| id_set.0.iter().ok()),
-        }
+        })
     }
     pub fn with_value_eq(
         &self,
         kind: &EntityKind,
         field: &str,
         value: &Option<Value>,
-    ) -> EntityIDIter {
-        EntityIDIter {
+    ) -> Box<dyn Iterator<Item = EntityID>> {
+        Box::new(EntityIDIter {
             iter: self
                 .value_index
                 .get(&(kind.to_owned(), field.to_string()))
                 .ok()
                 .and_then(|v_set| v_set.0.get(value).ok())
                 .and_then(|id_set| id_set.0.iter().ok()),
-        }
+        })
+    }
+    pub fn with_value_ne(
+        &self,
+        kind: &EntityKind,
+        field: &str,
+        value: &Option<Value>,
+    ) -> Box<dyn Iterator<Item = EntityID>> {
+        self.with_diff(
+            self.with_field(kind, field),
+            Box::new(EntityIDIter {
+                iter: self
+                    .value_index
+                    .get(&(kind.to_owned(), field.to_string()))
+                    .ok()
+                    .and_then(|v_set| v_set.0.get(value).ok())
+                    .and_then(|id_set| id_set.0.iter().ok()),
+            }),
+        )
+    }
+    pub fn with_and(
+        &self,
+        a: Box<dyn Iterator<Item = EntityID>>,
+        b: Box<dyn Iterator<Item = EntityID>>,
+    ) -> Box<dyn Iterator<Item = EntityID>> {
+        Box::new(EntityIDSetOperationIter::new(SetOperation::And, a, b))
+    }
+    pub fn with_or(
+        &self,
+        a: Box<dyn Iterator<Item = EntityID>>,
+        b: Box<dyn Iterator<Item = EntityID>>,
+    ) -> Box<dyn Iterator<Item = EntityID>> {
+        Box::new(EntityIDSetOperationIter::new(SetOperation::Or, a, b))
+    }
+    pub fn with_diff(
+        &self,
+        a: Box<dyn Iterator<Item = EntityID>>,
+        b: Box<dyn Iterator<Item = EntityID>>,
+    ) -> Box<dyn Iterator<Item = EntityID>> {
+        Box::new(EntityIDSetOperationIter::new(SetOperation::Diff, a, b))
     }
 
     pub fn has_entity(&self, entity: &Entity) -> bool {
@@ -182,6 +205,106 @@ impl Index {
             cv.accessor.pop();
         }
         Ok(())
+    }
+}
+
+enum SetOperation {
+    And,
+    Or,
+    Diff,
+}
+pub struct EntityIDSetOperationIter {
+    iter_a: Box<dyn Iterator<Item = EntityID>>,
+    iter_b: Box<dyn Iterator<Item = EntityID>>,
+    read_a: bool,
+    read_b: bool,
+    next_a: Option<EntityID>,
+    next_b: Option<EntityID>,
+    set_op: SetOperation,
+}
+impl EntityIDSetOperationIter {
+    fn new(
+        set_op: SetOperation,
+        iter_a: Box<dyn Iterator<Item = EntityID>>,
+        iter_b: Box<dyn Iterator<Item = EntityID>>,
+    ) -> Self {
+        EntityIDSetOperationIter {
+            iter_a,
+            iter_b,
+            set_op,
+            read_a: true,
+            read_b: true,
+            next_a: None,
+            next_b: None,
+        }
+    }
+}
+impl Iterator for EntityIDSetOperationIter {
+    type Item = EntityID;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if self.read_a {
+                self.next_a = self.iter_a.next();
+                if self.next_a == None {
+                    self.read_a = false;
+                }
+            }
+            if self.read_b {
+                self.next_b = self.iter_b.next();
+                if self.next_b == None {
+                    self.read_b = false;
+                }
+            }
+            match (&self.next_a, &self.next_b) {
+                (None, None) => return None,
+                (None, Some(b)) => match self.set_op {
+                    SetOperation::And | SetOperation::Diff => {}
+                    SetOperation::Or => return Some(b.clone()),
+                },
+                (Some(a), None) => match self.set_op {
+                    SetOperation::And => {}
+                    SetOperation::Or | SetOperation::Diff => return Some(a.clone()),
+                },
+                (Some(a), Some(b)) if a < b => {
+                    self.read_a = true;
+                    self.read_b = false;
+                    match self.set_op {
+                        SetOperation::And => {}
+                        SetOperation::Or | SetOperation::Diff => return Some(a.clone()),
+                    }
+                }
+                (Some(a), Some(b)) if a > b => {
+                    self.read_a = false;
+                    self.read_b = true;
+                    match self.set_op {
+                        SetOperation::And | SetOperation::Diff => {}
+                        SetOperation::Or => return Some(a.clone()),
+                    }
+                }
+                (Some(a), Some(_)) => {
+                    self.read_a = true;
+                    self.read_b = true;
+                    match self.set_op {
+                        SetOperation::Diff => {}
+                        SetOperation::And | SetOperation::Or => return Some(a.clone()),
+                    }
+                }
+            }
+        }
+    }
+}
+pub struct EntityIDIter {
+    iter: Option<Iter<EntityID, bool>>,
+}
+
+impl Iterator for EntityIDIter {
+    type Item = EntityID;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let (id, true) = self.iter.as_mut()?.next()? {
+                return Some(id);
+            }
+        }
     }
 }
 
@@ -412,6 +535,76 @@ mod test_super {
             none,
         );
     }
+
+    #[test]
+    fn test_with_value_ne_3() {
+        let ref a = create_entity_a();
+        let ref b = create_entity_b();
+        let ref c = create_entity_c();
+        let index = create_index(vec![&c, &b, &a]);
+        let oka = &Some(a.id());
+        let okb = &Some(b.id());
+        let okc = &Some(c.id());
+        let none = &None;
+        let check = |field: &str,
+                     value: &Option<Value>,
+                     fst: &Option<EntityID>,
+                     snd: &Option<EntityID>,
+                     trd: &Option<EntityID>| {
+            let mut iter = index.with_value_ne(&a.to_kind(), field, value);
+            assert_eq!(
+                iter.next(),
+                *fst,
+                "test for field:{} and value: {:?}",
+                field,
+                value
+            );
+            assert_eq!(
+                iter.next(),
+                *snd,
+                "test for field:{} and value: {:?}",
+                field,
+                value
+            );
+            assert_eq!(
+                iter.next(),
+                *trd,
+                "test for field:{} and value: {:?}",
+                field,
+                value
+            );
+        };
+        check(
+            ".name",
+            &Some(Value::Text("name".to_string())),
+            okb,
+            okc,
+            none,
+        );
+        check(
+            ".namespace",
+            &Some(Value::Text("namespace".to_string())),
+            none,
+            none,
+            none,
+        );
+        check(
+            ".tags",
+            &Some(Value::Text("e".to_string())),
+            oka,
+            none,
+            none,
+        );
+        check(".tags", &Some(Value::Text("f".to_string())), oka, okb, okc);
+        check(
+            ".runtime.container.dockerfile",
+            &Some(Value::Text("dockerfile".to_string())),
+            okc,
+            none, //a and b are functions. so this field is not defined for them
+            none,
+        );
+    }
+
     #[test]
     fn test_with_value_eq_3() {
         let ref a = create_entity_a();
