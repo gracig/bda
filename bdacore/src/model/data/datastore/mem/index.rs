@@ -1,5 +1,5 @@
 use crate::model::data::{Entity, EntityID, EntityKind};
-use bdaql::Value;
+use bdaql::{Ast, Value};
 use ppom::mdb::{Iter, OMap};
 use std::ops::RangeBounds;
 
@@ -28,10 +28,101 @@ impl Index {
             value_index: ValueIndex::new(),
         }
     }
-    pub fn index(&mut self, entity: &Entity) -> Result<(), String> {
+    pub fn index(&self, entity: &Entity) -> Result<(), String> {
         match entity {
             Entity::Resource(_, r) => {
                 self.update_indexes(&entity.id(), &to_field_values(to_json_value(r)?))
+            }
+        }
+    }
+    pub fn remove(&self, entity: &Entity) -> Result<(), String> {
+        match entity {
+            Entity::Resource(_, r) => {
+                self.remove_indexes(&entity.id(), &to_field_values(to_json_value(r)?))
+            }
+        }
+    }
+
+    pub fn search(&self, kind: &EntityKind, ast: Box<Ast>) -> Box<dyn Iterator<Item = EntityID>> {
+        match *ast {
+            bdaql::Ast::Intersection(a, b) => {
+                self.with_and(self.search(kind, a), self.search(kind, b))
+            }
+            bdaql::Ast::Union(a, b) => self.with_or(self.search(kind, a), self.search(kind, b)),
+            bdaql::Ast::Difference(a, b) => {
+                self.with_diff(self.search(kind, a), self.search(kind, b))
+            }
+            bdaql::Ast::Complement(a, b) => {
+                self.with_diff(self.search(kind, b), self.search(kind, a))
+            }
+            bdaql::Ast::All => self.with_kind(kind),
+            bdaql::Ast::Equal {
+                fname,
+                fvalue,
+                negate,
+            } => {
+                let eq = self.with_value_eq(kind, &fname, &fvalue);
+                if negate {
+                    Box::new(EntityIDSetOperationIter::new(
+                        SetOperation::Diff,
+                        self.with_kind(kind),
+                        eq,
+                    ))
+                } else {
+                    eq
+                }
+            }
+            bdaql::Ast::Defined { fname, negate } => {
+                let defined = self.with_field(kind, &fname);
+                if negate {
+                    Box::new(EntityIDSetOperationIter::new(
+                        SetOperation::Diff,
+                        self.with_kind(kind),
+                        defined,
+                    ))
+                } else {
+                    defined
+                }
+            }
+            bdaql::Ast::LessThan { fname, fvalue } => self.with_value_lt(kind, &fname, &fvalue),
+            bdaql::Ast::LessThanOrEqual { fname, fvalue } => {
+                self.with_value_lte(kind, &fname, &fvalue)
+            }
+            bdaql::Ast::GreaterThan { fname, fvalue } => self.with_value_gt(kind, &fname, &fvalue),
+            bdaql::Ast::GreaterThanOrEqual { fname, fvalue } => {
+                self.with_value_gte(kind, &fname, &fvalue)
+            }
+            bdaql::Ast::ContainsAll {
+                fname,
+                fvalues,
+                negate,
+            } => {
+                let all = self.with_value_eq_all(kind, &fname, &fvalues);
+                if negate {
+                    Box::new(EntityIDSetOperationIter::new(
+                        SetOperation::Diff,
+                        self.with_field(kind, &fname),
+                        all,
+                    ))
+                } else {
+                    all
+                }
+            }
+            bdaql::Ast::ContainsAny {
+                fname,
+                fvalues,
+                negate,
+            } => {
+                let any = self.with_value_eq_any(kind, &fname, &fvalues);
+                if negate {
+                    Box::new(EntityIDSetOperationIter::new(
+                        SetOperation::Diff,
+                        self.with_field(kind, &fname),
+                        any,
+                    ))
+                } else {
+                    any
+                }
             }
         }
     }
@@ -54,7 +145,7 @@ impl Index {
                 .and_then(|id_set| id_set.0.iter().ok()),
         })
     }
-    pub fn with_value_range<R>(
+    fn with_value_range<R>(
         &self,
         kind: &EntityKind,
         field: &str,
@@ -75,6 +166,7 @@ impl Index {
                 //Not so functional... :-(
                 for (v, id_set) in items {
                     if exclude_value && v == *value_to_exclude {
+                        println!("Excluding value {:?}", v)
                     } else {
                         stack.push(Box::new(EntityIDIter {
                             iter: id_set.iter().ok(),
@@ -105,6 +197,7 @@ impl Index {
     ) -> Box<dyn Iterator<Item = EntityID>> {
         self.with_value_range(kind, field, ..value.clone(), false, &None)
     }
+
     pub fn with_value_lte(
         &self,
         kind: &EntityKind,
@@ -113,6 +206,7 @@ impl Index {
     ) -> Box<dyn Iterator<Item = EntityID>> {
         self.with_value_range(kind, field, ..=value.clone(), false, &None)
     }
+
     pub fn with_value_gt(
         &self,
         kind: &EntityKind,
@@ -121,6 +215,7 @@ impl Index {
     ) -> Box<dyn Iterator<Item = EntityID>> {
         self.with_value_range(kind, field, value.clone().., true, value)
     }
+
     pub fn with_value_gte(
         &self,
         kind: &EntityKind,
@@ -145,24 +240,57 @@ impl Index {
                 .and_then(|id_set| id_set.0.iter().ok()),
         })
     }
-    pub fn with_value_ne(
+
+    pub fn with_value_eq_all(
         &self,
         kind: &EntityKind,
         field: &str,
-        value: &Option<Value>,
+        values: &Vec<Option<Value>>,
     ) -> Box<dyn Iterator<Item = EntityID>> {
-        self.with_diff(
-            self.with_field(kind, field),
-            Box::new(EntityIDIter {
-                iter: self
-                    .value_index
-                    .get(&(kind.to_owned(), field.to_string()))
-                    .ok()
-                    .and_then(|v_set| v_set.0.get(value).ok())
-                    .and_then(|id_set| id_set.0.iter().ok()),
-            }),
-        )
+        let mut stack = Vec::new();
+        for value in values {
+            stack.push(self.with_value_eq(kind, field, value));
+            if stack.len() > 1 {
+                let iter_a = stack.pop().unwrap();
+                let iter_b = stack.pop().unwrap();
+                stack.push(Box::new(EntityIDSetOperationIter::new(
+                    SetOperation::And,
+                    iter_a,
+                    iter_b,
+                )));
+            }
+        }
+        match stack.pop() {
+            Some(iter) => iter,
+            None => Box::new(EntityIDIter { iter: None }),
+        }
     }
+
+    pub fn with_value_eq_any(
+        &self,
+        kind: &EntityKind,
+        field: &str,
+        values: &Vec<Option<Value>>,
+    ) -> Box<dyn Iterator<Item = EntityID>> {
+        let mut stack = Vec::new();
+        for value in values {
+            stack.push(self.with_value_eq(kind, field, value));
+            if stack.len() > 1 {
+                let iter_a = stack.pop().unwrap();
+                let iter_b = stack.pop().unwrap();
+                stack.push(Box::new(EntityIDSetOperationIter::new(
+                    SetOperation::Or,
+                    iter_a,
+                    iter_b,
+                )));
+            }
+        }
+        match stack.pop() {
+            Some(iter) => iter,
+            None => Box::new(EntityIDIter { iter: None }),
+        }
+    }
+
     pub fn with_and(
         &self,
         a: Box<dyn Iterator<Item = EntityID>>,
@@ -170,6 +298,7 @@ impl Index {
     ) -> Box<dyn Iterator<Item = EntityID>> {
         Box::new(EntityIDSetOperationIter::new(SetOperation::And, a, b))
     }
+
     pub fn with_or(
         &self,
         a: Box<dyn Iterator<Item = EntityID>>,
@@ -177,6 +306,7 @@ impl Index {
     ) -> Box<dyn Iterator<Item = EntityID>> {
         Box::new(EntityIDSetOperationIter::new(SetOperation::Or, a, b))
     }
+
     pub fn with_diff(
         &self,
         a: Box<dyn Iterator<Item = EntityID>>,
@@ -194,6 +324,7 @@ impl Index {
             Err(_) => false,
         }
     }
+
     pub fn has_field(&self, entity: &Entity, field: &str) -> bool {
         match self.field_index.get(&(entity.to_kind(), field.to_string())) {
             Ok((id_set, _)) => match id_set.get(&entity.id()) {
@@ -203,6 +334,7 @@ impl Index {
             Err(_) => false,
         }
     }
+
     pub fn has_value(&self, entity: &Entity, field: &str, value: &Option<Value>) -> bool {
         match self.value_index.get(&(entity.to_kind(), field.to_string())) {
             Ok((vset, _)) => match vset.get(value) {
@@ -216,7 +348,7 @@ impl Index {
         }
     }
 
-    fn update_indexes(&mut self, id: &EntityID, values: &Vec<FieldValue>) -> Result<(), String> {
+    fn update_indexes(&self, id: &EntityID, values: &Vec<FieldValue>) -> Result<(), String> {
         for v in values {
             //println!("{:?}:{:?}", v.accessor_to_string(), v.value);
             self.update_world_index(id)
@@ -284,8 +416,76 @@ impl Index {
         }
         Ok(())
     }
-}
 
+    fn remove_indexes(&self, id: &EntityID, values: &Vec<FieldValue>) -> Result<(), String> {
+        for v in values {
+            //println!("{:?}:{:?}", v.accessor_to_string(), v.value);
+            self.remove_world_index(id)
+                .and(self.remove_value_index(id, &v.accessor_to_string(), &v.value))
+                .and(self.remove_field_index(id, &v))?;
+        }
+        Ok(())
+    }
+
+    fn remove_world_index(&self, id: &EntityID) -> Result<Option<EntitySet>, String> {
+        let id_set = self
+            .world_index
+            .get(&id.to_kind())
+            .unwrap_or((OMap::new(), 0))
+            .0;
+
+        Ok(id_set
+            .remove(id)
+            .and(self.world_index.set(id.to_kind(), id_set))
+            .map_err(|e| e.to_string())?)
+    }
+
+    fn remove_value_index(
+        &self,
+        id: &EntityID,
+        field: &str,
+        value: &Option<Value>,
+    ) -> Result<Option<ValueSet>, String> {
+        let v_set = self
+            .value_index
+            .get(&(id.to_kind(), field.to_string()))
+            .unwrap_or((OMap::new(), 0))
+            .0;
+        let id_set = v_set.get(value).unwrap_or((OMap::new(), 0)).0;
+        Ok(id_set
+            .remove(id)
+            .and(v_set.set(value.clone(), id_set))
+            .and(
+                self.value_index
+                    .set((id.to_kind(), field.to_string()), v_set),
+            )
+            .map_err(|e| e.to_string())?)
+    }
+
+    fn remove_field_index(&self, id: &EntityID, fv: &FieldValue) -> Result<(), String> {
+        let mut cv = fv.clone();
+        loop {
+            let field = cv.accessor_to_string();
+            let id_set = self
+                .field_index
+                .get(&(id.to_kind(), field.clone()))
+                .unwrap_or((OMap::new(), 0))
+                .0;
+            id_set
+                .remove(id)
+                .and(
+                    self.field_index
+                        .set((id.to_kind(), field.to_string()), id_set),
+                )
+                .map_err(|e| e.to_string())?;
+            if cv.accessor.is_empty() {
+                break;
+            }
+            cv.accessor.pop();
+        }
+        Ok(())
+    }
+}
 enum SetOperation {
     And,
     Or,
@@ -300,6 +500,7 @@ pub struct EntityIDSetOperationIter {
     next_b: Option<EntityID>,
     set_op: SetOperation,
 }
+
 impl EntityIDSetOperationIter {
     fn new(
         set_op: SetOperation,
@@ -307,9 +508,9 @@ impl EntityIDSetOperationIter {
         iter_b: Box<dyn Iterator<Item = EntityID>>,
     ) -> Self {
         EntityIDSetOperationIter {
+            set_op,
             iter_a,
             iter_b,
-            set_op,
             read_a: true,
             read_b: true,
             next_a: None,
@@ -317,6 +518,7 @@ impl EntityIDSetOperationIter {
         }
     }
 }
+
 impl Iterator for EntityIDSetOperationIter {
     type Item = EntityID;
     fn next(&mut self) -> Option<Self::Item> {
@@ -450,7 +652,6 @@ fn make_field_list(acessor: Vec<String>, json_value: serde_json::Value) -> Vec<F
 mod test_super {
     use super::*;
     use serde_json::{self, json};
-
     fn create_entity_a() -> Entity {
         Entity::Resource(
             "a".to_owned(),
@@ -459,7 +660,7 @@ mod test_super {
                 "description": "a description",
                 "namespace": "namespace",
                 "tags": ["a", "b", "c", "d"],
-                "attributes": { "key1": "value1", "key2": "value2", "key3": ["val3a", "val3b", "val3c"] },
+                "attributes": { "key1": "value1", "key2": "value2", "key3": ["val3a", "val3b", "val3c"], "key4": null },
                 "function":{
                     "inputs": [{
                         "name": "param1",
@@ -544,9 +745,8 @@ mod test_super {
             })).unwrap(),
         )
     }
-
     fn create_index(entities: Vec<&Entity>) -> Index {
-        let mut index = new();
+        let index = new();
         for entity in entities {
             index.index(entity).unwrap();
         }
@@ -554,388 +754,81 @@ mod test_super {
     }
 
     #[test]
-    fn test_with_kind() {
-        let entity = create_entity_a();
+    fn test_remove() {
+        let ref entity = create_entity_a();
         let index = create_index(vec![&entity]);
-        let mut iter = index.with_kind(&entity.to_kind());
-        assert_eq!(iter.next(), Some(entity.id()));
-        assert_eq!(iter.next(), None);
-    }
-    #[test]
-    fn test_with_field() {
-        let entity = create_entity_a();
-        let index = create_index(vec![&entity]);
-        let ok = &Some(entity.id());
-        let none = &None;
-        let check = |field: &str,
-                     fst: &Option<EntityID>,
-                     snd: &Option<EntityID>,
-                     trd: &Option<EntityID>| {
-            let mut iter = index.with_field(&entity.to_kind(), field);
-            assert_eq!(iter.next(), *fst, "with field: {}", field);
-            assert_eq!(iter.next(), *snd, "with field: {}", field);
-            assert_eq!(iter.next(), *trd, "with field: {}", field);
-        };
-        check(".name", ok, none, none);
-        check(".attributes.key1", ok, none, none);
-        check(".function.inputs.name", ok, none, none);
-        check(".", ok, none, none);
-        check("i dont exist", none, none, none);
+        assert_eq!(index.has_entity(entity), true);
+        assert_eq!(index.has_field(entity, ".attributes.key3"), true);
+        assert_eq!(
+            index.has_value(
+                entity,
+                ".description",
+                &Some(Value::Text("a description".to_string()))
+            ),
+            true
+        );
+        index.remove(entity).unwrap();
+        assert_eq!(index.has_entity(entity), false);
+        assert_eq!(index.has_field(entity, ".attributes.key3"), false);
+        assert_eq!(
+            index.has_value(
+                entity,
+                ".description",
+                &Some(Value::Text("a description".to_string()))
+            ),
+            false
+        );
     }
 
     #[test]
-    fn test_with_value_eq() {
-        let entity = create_entity_a();
-        let index = create_index(vec![&entity]);
-        let ok = &Some(entity.id());
+    fn test_search() {
+        let ref a = create_entity_a();
+        let ref b = create_entity_b();
+        let ref c = create_entity_c();
+        let index = create_index(vec![a, b, c]);
+        let oka = &Some(a.id());
+        let okb = &Some(b.id());
+        let okc = &Some(c.id());
         let none = &None;
         let check =
-            |field: &str, value: &Option<Value>, fst: &Option<EntityID>, snd: &Option<EntityID>| {
-                let mut iter = index.with_value_eq(&entity.to_kind(), field, value);
-                assert_eq!(
-                    iter.next(),
-                    *fst,
-                    "test for field:{} and value: {:?}",
-                    field,
-                    value
-                );
-                assert_eq!(
-                    iter.next(),
-                    *snd,
-                    "test for field:{} and value: {:?}",
-                    field,
-                    value
-                );
+            |q: &str, fst: &Option<EntityID>, snd: &Option<EntityID>, trd: &Option<EntityID>| {
+                let kind = &a.to_kind();
+                let ast = Box::new(bdaql::from_str(q).unwrap());
+                let mut iter = index.search(kind, ast);
+                assert_eq!(iter.next(), *fst, "testing with query: {}", q);
+                assert_eq!(iter.next(), *snd, "testing with query: {}", q);
+                assert_eq!(iter.next(), *trd, "testing with query: {}", q);
+                assert_eq!(iter.next(), None, "testing with query: {}", q);
             };
-        check(".name", &Some(Value::Text("name".to_string())), ok, none);
-        check(
-            ".description",
-            &Some(Value::Text("a description".to_string())),
-            ok,
-            none,
-        );
-        check(
-            ".function.baseCommand",
-            &Some(Value::Text("echo".to_string())),
-            ok,
-            none,
-        );
-    }
-
-    #[test]
-    fn test_with_value_ne_3() {
-        let ref a = create_entity_a();
-        let ref b = create_entity_b();
-        let ref c = create_entity_c();
-        let index = create_index(vec![&c, &b, &a]);
-        let oka = &Some(a.id());
-        let okb = &Some(b.id());
-        let okc = &Some(c.id());
-        let none = &None;
-        let check = |field: &str,
-                     value: &Option<Value>,
-                     fst: &Option<EntityID>,
-                     snd: &Option<EntityID>,
-                     trd: &Option<EntityID>| {
-            let mut iter = index.with_value_ne(&a.to_kind(), field, value);
-            assert_eq!(
-                iter.next(),
-                *fst,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-            assert_eq!(
-                iter.next(),
-                *snd,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-            assert_eq!(
-                iter.next(),
-                *trd,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-        };
-        check(
-            ".name",
-            &Some(Value::Text("name".to_string())),
-            okb,
-            okc,
-            none,
-        );
-        check(
-            ".namespace",
-            &Some(Value::Text("namespace".to_string())),
-            none,
-            none,
-            none,
-        );
-        check(
-            ".tags",
-            &Some(Value::Text("e".to_string())),
-            oka,
-            none,
-            none,
-        );
-        check(".tags", &Some(Value::Text("f".to_string())), oka, okb, okc);
-        check(
-            ".runtime.container.dockerfile",
-            &Some(Value::Text("dockerfile".to_string())),
-            okc,
-            none, //a and b are functions. so this field is not defined for them
-            none,
-        );
-    }
-
-    #[test]
-    fn test_with_value_lt() {
-        let ref a = create_entity_a();
-        let ref b = create_entity_b();
-        let ref c = create_entity_c();
-        let index = create_index(vec![&c, &b, &a]);
-        let oka = &Some(a.id());
-        let okb = &Some(b.id());
-        let okc = &Some(c.id());
-        let none = &None;
-
-        let check = |field: &str,
-                     value: &Option<Value>,
-                     fst: &Option<EntityID>,
-                     snd: &Option<EntityID>,
-                     trd: &Option<EntityID>| {
-            let mut iter = index.with_value_lt(&a.to_kind(), field, value);
-            assert_eq!(
-                iter.next(),
-                *fst,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-            assert_eq!(
-                iter.next(),
-                *snd,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-            assert_eq!(
-                iter.next(),
-                *trd,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-        };
-        check(
-            ".tags",
-            &Some(Value::Text("a".to_string())),
-            none,
-            none,
-            none,
-        );
-        check(".tags", &Some(Value::Text("b".to_string())), oka, okb, okc);
-    }
-
-    #[test]
-    fn test_with_value_lte() {
-        let ref a = create_entity_a();
-        let ref b = create_entity_b();
-        let ref c = create_entity_c();
-        let index = create_index(vec![&c, &b, &a]);
-        let oka = &Some(a.id());
-        let okb = &Some(b.id());
-        let okc = &Some(c.id());
-        let none = &None;
-        let check = |field: &str,
-                     value: &Option<Value>,
-                     fst: &Option<EntityID>,
-                     snd: &Option<EntityID>,
-                     trd: &Option<EntityID>| {
-            let mut iter = index.with_value_lte(&a.to_kind(), field, value);
-            assert_eq!(
-                iter.next(),
-                *fst,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-            assert_eq!(
-                iter.next(),
-                *snd,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-            assert_eq!(
-                iter.next(),
-                *trd,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-        };
-        check(
-            ".tags",
-            &Some(Value::Text("1".to_string())),
-            none,
-            none,
-            none,
-        );
-        check(".tags", &Some(Value::Text("a".to_string())), oka, okb, okc);
-        check(".tags", &Some(Value::Text("b".to_string())), oka, okb, okc);
-    }
-
-    #[test]
-    fn test_with_value_gt() {
-        let ref a = create_entity_a();
-        let ref b = create_entity_b();
-        let ref c = create_entity_c();
-        let index = create_index(vec![&c, &b, &a]);
-        let oka = &Some(a.id());
-        let okb = &Some(b.id());
-        let okc = &Some(c.id());
-        let none = &None;
-
-        let check = |field: &str,
-                     value: &Option<Value>,
-                     fst: &Option<EntityID>,
-                     snd: &Option<EntityID>,
-                     trd: &Option<EntityID>| {
-            let mut iter = index.with_value_gt(&a.to_kind(), field, value);
-            assert_eq!(
-                iter.next(),
-                *fst,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-            assert_eq!(
-                iter.next(),
-                *snd,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-            assert_eq!(
-                iter.next(),
-                *trd,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-        };
-        check(".tags", &Some(Value::Text("d".to_string())), okb, okc, none);
-        check(".tags", &Some(Value::Text("a".to_string())), oka, okb, okc);
-    }
-
-    #[test]
-    fn test_with_value_gte() {
-        let ref a = create_entity_a();
-        let ref b = create_entity_b();
-        let ref c = create_entity_c();
-        let index = create_index(vec![&c, &b, &a]);
-        let oka = &Some(a.id());
-        let okb = &Some(b.id());
-        let okc = &Some(c.id());
-        let none = &None;
-
-        let check = |field: &str,
-                     value: &Option<Value>,
-                     fst: &Option<EntityID>,
-                     snd: &Option<EntityID>,
-                     trd: &Option<EntityID>| {
-            let mut iter = index.with_value_gte(&a.to_kind(), field, value);
-            assert_eq!(
-                iter.next(),
-                *fst,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-            assert_eq!(
-                iter.next(),
-                *snd,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-            assert_eq!(
-                iter.next(),
-                *trd,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-        };
-        check(".tags", &Some(Value::Text("e".to_string())), okb, okc, none);
-        check(".tags", &Some(Value::Text("d".to_string())), oka, okb, okc);
-        check(".tags", &Some(Value::Text("a".to_string())), oka, okb, okc);
-    }
-
-    #[test]
-    fn test_with_value_eq_3() {
-        let ref a = create_entity_a();
-        let ref b = create_entity_b();
-        let ref c = create_entity_c();
-        let index = create_index(vec![&c, &b, &a]);
-        let oka = &Some(a.id());
-        let okb = &Some(b.id());
-        let okc = &Some(c.id());
-        let none = &None;
-        let check = |field: &str,
-                     value: &Option<Value>,
-                     fst: &Option<EntityID>,
-                     snd: &Option<EntityID>,
-                     trd: &Option<EntityID>| {
-            let mut iter = index.with_value_eq(&a.to_kind(), field, value);
-            assert_eq!(
-                iter.next(),
-                *fst,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-            assert_eq!(
-                iter.next(),
-                *snd,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-            assert_eq!(
-                iter.next(),
-                *trd,
-                "test for field:{} and value: {:?}",
-                field,
-                value
-            );
-        };
-        check(
-            ".name",
-            &Some(Value::Text("name".to_string())),
-            oka,
-            none,
-            none,
-        );
-        check(
-            ".namespace",
-            &Some(Value::Text("namespace".to_string())),
-            oka,
-            okb,
-            okc,
-        );
-        check(".tags", &Some(Value::Text("e".to_string())), okb, okc, none);
-        check(
-            ".tags",
-            &Some(Value::Text("f".to_string())),
-            none,
-            none,
-            none,
-        );
+        check(".name is defined", oka, okb, okc);
+        check(".name", oka, okb, okc);
+        check(".name eq 'name'", oka, none, none);
+        check(".name == 'nameb'", okb, none, none);
+        check(".name=='namec'", okc, none, none);
+        check(".name ne 'name'", okb, okc, none);
+        check("!.name eq 'name'", okb, okc, none);
+        check(".name!='name'", okb, okc, none);
+        check(".name>'name'", okb, okc, none);
+        check(".name gt 'name'", okb, okc, none);
+        check(".name>='name'", oka, okb, okc);
+        check(".name gte 'name'", oka, okb, okc);
+        check(".name<'name'", none, none, none);
+        check(".name lt 'name'", none, none, none);
+        check(".name<='name'", oka, none, none);
+        check(".name lte 'name'", oka, none, none);
+        check(".name>'name' or .name=='name'", oka, okb, okc);
+        check(".name>'name' and .name=='nameb'", okb, none, none);
+        check(".tags@all['a','b','c','d']", oka, okb, okc);
+        check(".tags@all['a','b','c','d','e']", okb, okc, none);
+        check(".tags!@all['a','b','c','d','e']", oka, none, none);
+        check(".tags@any['a','b','c','d','e']", oka, okb, okc);
+        check(".tags!@any['a','b','c','d','e']", none, none, none);
+        check(".attributes.key4 == null", oka, none, none);
+        check(".attributes.key4 is nothing", oka, none, none);
+        check(".attributes.key4 is nil", oka, none, none);
+        check(".attributes.key4 is none", oka, none, none);
+        check(".runtime", okc, none, none);
+        check(".function", oka, okb, none);
     }
 
     #[test]

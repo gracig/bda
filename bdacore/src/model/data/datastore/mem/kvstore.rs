@@ -13,17 +13,13 @@ impl KvStore {
     pub fn new() -> Self {
         KvStore { db: OMap::new() }
     }
-    pub fn put(&self, entity: &Entity) -> Result<(), String> {
-        self.db
-            .set(entity.id(), entity.clone())
-            .map_err(|e| e.to_string())?;
-        Ok(())
+    pub fn put(&self, entity: &Entity) -> Option<Entity> {
+        self.db.set(entity.id(), entity.clone()).ok()?
     }
-    pub fn del(&self, id: &EntityID) -> Result<(), String> {
-        self.db.remove(id).map_err(|e| e.to_string())?;
-        Ok(())
+    pub fn del(&self, id: &EntityID) -> Option<Entity> {
+        self.db.remove(id).ok()?
     }
     pub fn get(&self, id: &EntityID) -> Option<Entity> {
-        self.db.get(id).ok().and_then(|(e, _)| Some(e))
+        Some(self.db.get(id).ok()?.0)
     }
 }

@@ -301,7 +301,6 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                     step = Step::Initial;
                 }
                 Token::Eof => {
-                    println!("{:?}", nodes);
                     return solve_nodes(&nodes);
                 }
                 _ => {

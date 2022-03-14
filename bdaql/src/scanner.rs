@@ -210,7 +210,6 @@ fn scan_text<T: Iterator<Item = char>>(it: &mut Peekable<T>) -> Token {
             break;
         } else {
             buf.push(ch);
-            println!("Pushing {} open is {} and escape is {}", ch, open, escape);
             escape = false
         }
     }

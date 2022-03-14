@@ -9,13 +9,11 @@ use bdaproto::Resource;
 use mockall::{automock, predicate::*};
 use std::fmt::Debug;
 
-type EntitySet = Box<dyn Iterator<Item = (EntityID, Entity)>>;
-
 #[cfg_attr(test, automock)]
 pub trait Datastore {
     fn get<'a>(&self, id: &'a EntityID) -> Result<Option<Entity>, String>;
     fn set(&self, action: Op) -> Result<Op, String>;
-    fn search<'a>(&self, query: &'a Query) -> Result<EntitySet, String>;
+    fn search<'a>(&self, query: &'a Query) -> Result<Box<dyn Iterator<Item = EntityID>>, String>;
 }
 
 pub fn new<'d, D: Datastore>(datastore: &'d D) -> Data<'d> {
@@ -97,7 +95,10 @@ impl<'d> Data<'d> {
             }
         }
     }
-    pub fn search<'a>(&self, query: &'a Query) -> Result<EntitySet, String> {
+    pub fn search<'a>(
+        &self,
+        query: &'a Query,
+    ) -> Result<Box<dyn Iterator<Item = EntityID>>, String> {
         self.datastore.search(query)
     }
 }
@@ -117,15 +118,10 @@ mod test_super {
             kind: EntityKind::Resource,
             ast: Ast::All,
         };
-        let entity = Entity::Resource("id1".to_owned(), factory::new_resource_function("name"));
-        let items = vec![
-            (EntityID::ResourceID("a".to_owned()), entity.clone()),
-            (EntityID::ResourceID("b".to_owned()), entity.clone()),
-        ];
-        let items2 = vec![
-            (EntityID::ResourceID("a".to_owned()), entity.clone()),
-            (EntityID::ResourceID("c".to_owned()), entity.clone()),
-        ];
+        let entitya = EntityID::ResourceID("a".to_owned());
+        let entityb = EntityID::ResourceID("b".to_owned());
+        let items = vec![entitya.clone(), entityb.clone(), entityb.clone()];
+        let items2 = vec![entitya.clone(), entitya.clone(), entityb.clone()];
         let mut set = Box::new(items.clone().into_iter());
         let search_set = Box::new(items2.clone().into_iter());
         mock.expect_search()
