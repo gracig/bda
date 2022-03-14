@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package bda;
+option go_package = "./;pb";
+
+import "google/protobuf/struct.proto";
+
+/*
+    Status of Development:
+    - Function Resource : WIP
+    - Runtime Resource : WIP
+    - Dag Resource: TODO
+    - Applier Resource: TODO
+    - Bundle Resource: TODO
+    - Deployer Resource: TODO
+    - Listener Resource: TODO
+    - Config Resource: TODO
+*/
+
+//Resource represents a resource in the BDA architecture
+message Resource {
+    string revision = 1;
+    string namespace = 2;
+    string name = 3;
+    string description = 4;
+    repeated string tags = 5;
+    oneof resource_kind {
+        Variables variables = 10;
+        Function function = 50;
+        Runtime runtime = 51;
+    }
+}
+
+message Variables {
+    google.protobuf.Struct data = 1;
+}
+
+// Function is a resource that declares parameters and a procedure to be executed in order to apply
+// transformations like build a source code or deploy an application
+message Function {
+    repeated Parameter inputs = 1;
+    repeated Parameter outputs = 2;
+    repeated string baseCommand = 3;
+    repeated string runtimeCapabilities = 4;
+}
+
+message Parameter {
+    string name = 1;
+    string description = 2;
+    ParameterKind kind = 3;
+    google.protobuf.Value defaultValue = 4;
+}
+
+enum ParameterKind {
+    INTEGER = 0;
+    REAL = 1;
+    BOOLEAN = 2;
+    TEXT = 3;
+    JSON = 4;
+    URL = 5;
+    PATH = 6;
+} 
+
+//Runtime is a resource that describes an environment where procedures can be executed
+message Runtime {
+    repeated string capabilities = 1;
+    oneof runtime_kind {
+        Container container = 10;
+    }
+}
+
+message Container {
+    string dockerfile = 1;
+}
