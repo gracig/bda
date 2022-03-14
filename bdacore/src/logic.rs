@@ -1,14 +1,78 @@
 use bdaproto::resource::ResourceKind;
 use bdaproto::runtime::RuntimeKind;
-use bdaproto::{GetResourcesRequest, Resource};
+use bdaproto::{Container, DelResourceRequest, Function, GetResourceRequest, Resource, Runtime};
 
-use crate::data::query::Query;
-use crate::model::DEFAULT_REVISION;
-
-use super::data::EntityKind;
 const FUNCTION_KIND: &str = "function";
 const RUNTIME_CONTAINER_KIND: &str = "runtime.container";
 const KINDS: [&str; 2] = [FUNCTION_KIND, RUNTIME_CONTAINER_KIND];
+pub const DEFAULT_NAMESPACE: &str = "default";
+pub const DEFAULT_REVISION: &str = "latest";
+pub const DEFAULT_DOCKERFILE: &str = "Dockerfile";
+
+pub fn new_resource_runtime_container(name: &str) -> Resource {
+    new_resource(
+        name,
+        Some(ResourceKind::Runtime(new_runtime(Some(
+            RuntimeKind::Container(new_container()),
+        )))),
+    )
+}
+
+pub fn new_resource_function(name: &str) -> Resource {
+    new_resource(name, Some(ResourceKind::Function(new_function())))
+}
+
+fn new_container() -> Container {
+    Container {
+        dockerfile: String::new(),
+    }
+}
+
+fn new_runtime(runtime_kind: Option<RuntimeKind>) -> Runtime {
+    Runtime {
+        capabilities: Vec::new(),
+        runtime_kind: runtime_kind,
+    }
+}
+
+fn new_function() -> Function {
+    Function {
+        inputs: Vec::new(),
+        outputs: Vec::new(),
+        base_command: Vec::new(),
+        runtime_capabilities: Vec::new(),
+    }
+}
+
+fn new_resource(name: &str, kind: Option<ResourceKind>) -> Resource {
+    let mut r = Resource {
+        version: String::new(),
+        namespace: String::new(),
+        name: name.to_owned(),
+        description: String::new(),
+        tags: Vec::new(),
+        attributes: None,
+        resource_kind: kind,
+    };
+    defaults(&mut r);
+    r
+}
+
+pub fn defaults(r: &mut Resource) {
+    default_string_if_empty(&mut r.namespace, DEFAULT_NAMESPACE);
+    default_string_if_empty(&mut r.version, DEFAULT_REVISION);
+    if let Some(ResourceKind::Runtime(r)) = &mut r.resource_kind {
+        if let Some(RuntimeKind::Container(c)) = &mut r.runtime_kind {
+            default_string_if_empty(&mut c.dockerfile, DEFAULT_DOCKERFILE);
+        }
+    }
+}
+
+fn default_string_if_empty(v: &mut String, d: &str) {
+    if v == "" {
+        *v = d.to_owned()
+    }
+}
 
 pub fn resource_kinds_iter() -> impl Iterator<Item = String> {
     KINDS.into_iter().map(|x| x.to_string())
@@ -32,6 +96,13 @@ pub fn resource_id_builder(
     Ok(format!("/{}/{}/{}/{}", version, namespace, kind, name))
 }
 
+pub fn resource_id_from_get_request(r: &GetResourceRequest) -> Result<String, String> {
+    return resource_id_builder(&r.revision, &r.namespace, &r.kind, &r.name);
+}
+pub fn resource_id_from_del_request(r: &DelResourceRequest) -> Result<String, String> {
+    return resource_id_builder(&r.revision, &r.namespace, &r.kind, &r.name);
+}
+
 pub fn resource_id(r: &Resource) -> Result<String, String> {
     return resource_id_builder(
         &r.version,
@@ -42,136 +113,27 @@ pub fn resource_id(r: &Resource) -> Result<String, String> {
         &r.name,
     );
 }
-pub fn query_from_get_resources_request(request: &GetResourcesRequest) -> Result<Query, String> {
-    bdaql_conjunction(vec![
-        bdaql_from_namespaces(&request.namespaces),
-        bdaql_from_version(&request.revision),
-        bdaql_from_kinds(&request.kinds),
-        bdaql_from_bql(&request.bql),
-    ])
-    .ok_or_else(|| format!("could not build query from request {:?}", request))
-    .and_then(|ref bql| {
-        Ok(Query {
-            kind: EntityKind::Resource,
-            ast: bdaql::from_str(bql)?,
-        })
-    })
-}
-fn bdaql_from_namespaces(s: &str) -> Option<String> {
-    let mut ns: Vec<String> = Vec::new();
-    for n in s.split(",") {
-        if n == "" || n == "all" {
-            return None; //does not filter namespaces
-        } else {
-            ns.push(format!("'{}'", n.to_lowercase().replace("'", "\\'")));
-        }
-    }
-    Some(format!(".namespace@any[{}]", ns.join(",")))
-}
-fn bdaql_from_version(s: &str) -> Option<String> {
-    let version = match s.split(",").next() {
-        Some(v) if v != "" => v.to_lowercase().replace("'", "\\'"),
-        _ => DEFAULT_REVISION.to_string(),
-    };
-    Some(format!(".version=='{}'", version))
-}
-fn bdaql_from_kinds(s: &str) -> Option<String> {
-    let mut ns: Vec<String> = Vec::new();
-    for n in s.split(",") {
-        if n == "" || n == "all" {
-            return None; //does not filter kinds
-        } else {
-            ns.push(format!(".{}", n.to_lowercase()));
-        }
-    }
-    Some(format!("{}", ns.join("||")))
-}
-fn bdaql_from_bql(s: &str) -> Option<String> {
-    if s == "" {
-        None
-    } else {
-        Some(s.to_string())
-    }
-}
-fn bdaql_conjunction(expressions: Vec<Option<String>>) -> Option<String> {
-    let mut vs: Vec<String> = Vec::new();
-    for e in expressions {
-        match e {
-            Some(s) => vs.push(format!("( {} )", s)),
-            None => {}
-        }
-    }
-    if vs.len() == 0 {
-        None
-    } else if vs.len() == 1 {
-        Some(vs[0].clone())
-    } else {
-        Some(vs.join("&&"))
-    }
-}
 
 #[cfg(test)]
-mod test_super {
+mod tests {
     use super::*;
 
     #[test]
-    fn test_bdaql_and() {
-        let namespaces = bdaql_from_namespaces("");
-        assert_eq!(namespaces, None);
-        let namespaces = bdaql_from_namespaces("all");
-        assert_eq!(namespaces, None);
-        let namespaces = bdaql_from_namespaces("anamespace,all");
-        assert_eq!(namespaces, None);
-
-        let version = bdaql_from_version("");
-        assert_eq!(
-            version,
-            Some(format!(".version=='{}'", DEFAULT_REVISION.to_string()))
-        );
-
-        let kinds = bdaql_from_kinds("");
-        assert_eq!(kinds, None);
-        let kinds = bdaql_from_kinds("function");
-        assert_eq!(kinds, Some(".function".to_string()));
-        let kinds = bdaql_from_kinds("function,runtime.container");
-        assert_eq!(kinds, Some(".function||.runtime.container".to_string()));
-
-        let bdaql = bdaql_from_bql("");
-        assert_eq!(bdaql, None);
-        let bdaql = bdaql_from_bql(".name");
-        assert_eq!(bdaql, Some(".name".to_string()));
-
-        let namespaces = bdaql_from_namespaces("ns1,ns2");
-        assert_eq!(namespaces, Some(".namespace@any['ns1','ns2']".to_string()));
-        let version = bdaql_from_version("");
-        assert_eq!(
-            version,
-            Some(format!(".version=='{}'", DEFAULT_REVISION.to_string()))
-        );
-        let kinds = bdaql_from_kinds("function,runtime.container");
-        assert_eq!(kinds, Some(".function||.runtime.container".to_string()));
-        let bdaql = bdaql_from_bql("");
-        assert_eq!(bdaql, None);
-        let and = bdaql_conjunction(vec![namespaces, version, kinds, bdaql]);
-        assert_eq!(
-            and,
-            Some(format!(
-                "( {} )&&( {} )&&( {} )",
-                ".namespace@any['ns1','ns2']".to_string(),
-                format!(".version=='{}'", DEFAULT_REVISION.to_string()),
-                ".function||.runtime.container".to_string()
-            ))
-        );
-
-        let namespaces = bdaql_from_namespaces("ns1,ns2");
-        assert_eq!(namespaces, Some(".namespace@any['ns1','ns2']".to_string()));
-        let and = bdaql_conjunction(vec![namespaces, None, None, None]);
-        assert_eq!(
-            and,
-            Some(format!("( {} )", ".namespace@any['ns1','ns2']".to_string()))
-        );
-
-        let and = bdaql_conjunction(vec![None, None, None, None]);
-        assert_eq!(and, None)
+    fn test_default_string_if_empty() {
+        let mut s = String::new();
+        super::default_string_if_empty(&mut s, "default");
+        assert_eq!(s, "default")
+    }
+    #[test]
+    fn test_defaults() {
+        let a = new_resource_function("function");
+        assert_eq!(a.namespace, DEFAULT_NAMESPACE);
+        assert_eq!(a.version, DEFAULT_REVISION);
+        let a = new_resource_runtime_container("container");
+        if let Some(ResourceKind::Runtime(r)) = a.resource_kind {
+            if let Some(RuntimeKind::Container(c)) = r.runtime_kind {
+                assert_eq!(c.dockerfile, DEFAULT_DOCKERFILE);
+            }
+        }
     }
 }

@@ -214,11 +214,10 @@ impl Data {
 
 #[cfg(test)]
 mod test_super {
-    use bdaql::Ast;
-
-    use crate::model;
+    use crate::logic;
 
     use super::*;
+    use bdaql::Ast;
 
     #[test]
     fn test_data_search() {
@@ -247,7 +246,7 @@ mod test_super {
     #[test]
     fn test_data_put_new() {
         let id = EntityID::ResourceID("an id".to_owned());
-        let entity = Entity::Resource("an id".to_owned(), model::new_resource_function("name"));
+        let entity = Entity::Resource("an id".to_owned(), logic::new_resource_function("name"));
         let op = Op::Create {
             new: entity.clone(),
         };
@@ -266,7 +265,7 @@ mod test_super {
     #[test]
     fn test_data_put_same() {
         let id = EntityID::ResourceID("an id".to_owned());
-        let entity = Entity::Resource("an id".to_owned(), model::new_resource_function("name"));
+        let entity = Entity::Resource("an id".to_owned(), logic::new_resource_function("name"));
         let get_entity = entity.clone();
         let get_return = Some(get_entity);
         let mut mock = MockDatastore::new();
@@ -281,7 +280,7 @@ mod test_super {
     #[test]
     fn test_data_put_change() {
         let id = EntityID::ResourceID("an id".to_owned());
-        let entity = Entity::Resource("an id".to_owned(), model::new_resource_function("name"));
+        let entity = Entity::Resource("an id".to_owned(), logic::new_resource_function("name"));
         let mut get_entity = entity.clone();
         let Entity::Resource(_, ref mut r) = get_entity;
         r.description = "last description".to_owned();
@@ -305,7 +304,7 @@ mod test_super {
     #[test]
     fn test_data_del_existent() {
         let id = EntityID::ResourceID("an id".to_owned());
-        let entity = Entity::Resource("an id".to_owned(), model::new_resource_function("name"));
+        let entity = Entity::Resource("an id".to_owned(), logic::new_resource_function("name"));
         let get_return = Some(entity.clone());
         let op = Op::Delete {
             id: id.clone(),

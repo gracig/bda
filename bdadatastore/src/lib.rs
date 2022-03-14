@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
-use bdacore;
-use bdacore::data::EntityKind;
+use bdacore::data::query::Query;
+use bdacore::data::{Entity, EntityID, EntityKind};
+use bdacore::{self, logic};
 use bdaproto::bda_server::Bda;
 use bdaproto::{
     self, DelResourceRequest, DelResourceResponse, DelResourcesRequest, GetKindsRequest,
@@ -25,12 +26,12 @@ impl Bda for BDADatastoreService {
     ) -> Result<tonic::Response<GetRevisionsResponse>, Status> {
         self.data
             .values_as_string(&EntityKind::Resource, ".version")
-            .map_err(|e| Status::internal(e.to_string()))
             .and_then(|iter| {
                 Ok(Response::new(GetRevisionsResponse {
                     revisions: iter.collect(),
                 }))
             })
+            .map_err(|e| Status::internal(e.to_string()))
     }
 
     async fn get_namespaces(
@@ -39,12 +40,12 @@ impl Bda for BDADatastoreService {
     ) -> Result<tonic::Response<GetNamespacesResponse>, tonic::Status> {
         self.data
             .values_as_string(&EntityKind::Resource, ".namespace")
-            .map_err(|e| Status::internal(e.to_string()))
             .and_then(|iter| {
                 Ok(Response::new(GetNamespacesResponse {
                     namespaces: iter.collect(),
                 }))
             })
+            .map_err(|e| Status::internal(e.to_string()))
     }
 
     async fn get_kinds(
@@ -60,10 +61,10 @@ impl Bda for BDADatastoreService {
         &self,
         request: tonic::Request<GetResourcesRequest>,
     ) -> Result<tonic::Response<GetResourcesResponse>, tonic::Status> {
-        bdacore::logic::query_from_get_resources_request(request.get_ref())
+        Query::from_get_resources_request(request.get_ref())
             .and_then(|ref query| self.data.resources(&query))
-            .map_err(|e| tonic::Status::internal(e.to_string()))
             .and_then(|rs| Ok(Response::new(GetResourcesResponse { resources: rs })))
+            .map_err(|e| tonic::Status::internal(e.to_string()))
     }
 
     type StreamResourcesStream = ReceiverStream<Result<Resource, Status>>;
@@ -72,8 +73,7 @@ impl Bda for BDADatastoreService {
         request: tonic::Request<GetResourcesRequest>,
     ) -> Result<tonic::Response<Self::StreamResourcesStream>, tonic::Status> {
         let (tx, rx) = mpsc::channel(4);
-        //TODO: stream should be direct from database. should refactor to acomplish it
-        let items = bdacore::logic::query_from_get_resources_request(request.get_ref())
+        let items = Query::from_get_resources_request(request.get_ref())
             .and_then(|ref query| self.data.resources(&query))
             .map_err(|e| tonic::Status::internal(e.to_string()))?;
         tokio::spawn(async move {
@@ -89,26 +89,75 @@ impl Bda for BDADatastoreService {
 
     async fn del_resources(
         &self,
-        _request: tonic::Request<DelResourcesRequest>,
+        request: tonic::Request<DelResourcesRequest>,
     ) -> Result<tonic::Response<DelResourceResponse>, tonic::Status> {
-        unimplemented!()
+        Query::from_del_resources_request(request.get_ref())
+            .and_then(|ref query| self.data.search(&query))
+            .and_then(|iter| {
+                Ok(iter
+                    .map(|ref id| self.data.del(id).ok()?)
+                    .filter_map(|o| o)
+                    .map(|op| {
+                        if let bdacore::data::Op::Delete { .. } = op {
+                            1
+                        } else {
+                            0
+                        }
+                    })
+                    .sum())
+            })
+            .and_then(|updates| Ok(Response::new(DelResourceResponse { updates })))
+            .map_err(|e| tonic::Status::internal(e.to_string()))
     }
+
     async fn get_resource(
         &self,
-        _request: tonic::Request<GetResourceRequest>,
+        request: tonic::Request<GetResourceRequest>,
     ) -> Result<tonic::Response<Resource>, tonic::Status> {
-        unimplemented!()
+        logic::resource_id_from_get_request(request.get_ref())
+            .and_then(|id| Ok((id.clone(), self.data.get(&EntityID::ResourceID(id)))))
+            .and_then(|(id, entity)| match entity {
+                Ok(Some(Entity::Resource(_, r))) => Ok(r),
+                _ => Err(format!("entity not found: {}", id)),
+            })
+            .and_then(|r| Ok(Response::new(r)))
+            .map_err(|e| tonic::Status::internal(e.to_string()))
     }
+
     async fn del_resource(
         &self,
-        _request: tonic::Request<DelResourceRequest>,
+        request: tonic::Request<DelResourceRequest>,
     ) -> Result<tonic::Response<DelResourceResponse>, tonic::Status> {
-        unimplemented!()
+        logic::resource_id_from_del_request(request.get_ref())
+            .and_then(|id| self.data.del(&EntityID::ResourceID(id)))
+            .and_then(|op| {
+                if let Some(bdacore::data::Op::Delete { .. }) = op {
+                    Ok(1)
+                } else {
+                    Ok(0)
+                }
+            })
+            .and_then(|updates| Ok(Response::new(DelResourceResponse { updates })))
+            .map_err(|e| tonic::Status::internal(e.to_string()))
     }
+
     async fn put_resource(
         &self,
-        _request: tonic::Request<PutResourceRequest>,
+        request: tonic::Request<PutResourceRequest>,
     ) -> Result<tonic::Response<PutResourceResponse>, tonic::Status> {
-        unimplemented!()
+        request
+            .get_ref()
+            .resource
+            .as_ref()
+            .ok_or_else(|| "put request resource not defined".to_string())
+            .and_then(|r| Ok(Entity::Resource(logic::resource_id(r)?, r.to_owned())))
+            .and_then(|ref entity| self.data.put(entity))
+            .and_then(|x| match x {
+                Some(bdacore::data::Op::Create { .. }) => Ok(1),
+                Some(bdacore::data::Op::Update { .. }) => Ok(1),
+                _ => Ok(0),
+            })
+            .and_then(|updates| Ok(Response::new(PutResourceResponse { updates })))
+            .map_err(|e| tonic::Status::internal(e.to_string()))
     }
 }
