@@ -13,7 +13,6 @@ serde = "1.0"
 serde_json = "1.0"
 serde_yaml = "0.8"
 ppom = "0.7"
-ordered-float = "2.10"
 
 [dev-dependencies]
 mockall = "0.11"

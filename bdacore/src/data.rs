@@ -5,10 +5,9 @@ pub mod query;
 // Imports
 use crate::{data::query::Query, logic};
 use bdaproto::Resource;
-use bdaql::Value;
+use bdaql::{Rational, Value};
 #[cfg(test)]
 use mockall::{automock, predicate::*};
-use ordered_float::OrderedFloat;
 use std::{fmt::Debug, sync::Arc};
 
 #[cfg_attr(test, automock)]
@@ -169,9 +168,10 @@ impl Data {
             .values(kind, field)?
             .filter_map(|ov| match ov {
                 Some(v) => match v {
-                    Value::Number(vv) => Some(vv.to_string()),
+                    Value::Rational(vv) => Some(vv.to_string()),
                     Value::Text(vv) => Some(vv),
                     Value::Boolean(vv) => Some(vv.to_string()),
+                    Value::Integral(vv) => Some(vv.to_string()),
                 },
                 None => None,
             });
@@ -182,21 +182,22 @@ impl Data {
         &self,
         kind: &'a EntityKind,
         field: &'a str,
-    ) -> Result<Box<dyn Iterator<Item = OrderedFloat<f64>>>, String> {
+    ) -> Result<Box<dyn Iterator<Item = Rational>>, String> {
         let iter = self
             .datastore
             .values(kind, field)?
             .filter_map(|ov| match ov {
                 Some(v) => match v {
-                    Value::Number(vv) => Some(vv),
-                    Value::Text(vv) => vv.parse::<OrderedFloat<f64>>().ok(),
+                    Value::Rational(vv) => Some(vv),
+                    Value::Text(vv) => vv.parse::<Rational>().ok(),
                     Value::Boolean(vv) => {
                         if vv {
-                            Some(OrderedFloat(1.0))
+                            Some(Rational::from(1.0 as f64))
                         } else {
-                            Some(OrderedFloat(0.0))
+                            Some(Rational::from(0.0 as f64))
                         }
                     }
+                    Value::Integral(vv) => Some(Rational::from(vv as f64)),
                 },
                 None => None,
             });
@@ -213,15 +214,12 @@ impl Data {
             .values(kind, field)?
             .filter_map(|ov| match ov {
                 Some(v) => match v {
-                    Value::Number(vv) => {
-                        if vv == 0.0 || vv.is_nan() {
-                            Some(false)
-                        } else {
-                            Some(true)
-                        }
+                    Value::Rational(vv) => {
+                        Some(vv != Rational::from(0.0 as f64) && !vv.value.is_nan())
                     }
                     Value::Text(vv) => vv.parse::<bool>().ok(),
                     Value::Boolean(vv) => Some(vv),
+                    Value::Integral(vv) => Some(vv != 0),
                 },
                 None => None,
             });
