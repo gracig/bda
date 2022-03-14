@@ -1,10 +1,6 @@
-use bdaql::Value;
-use ppom::mdb::OMap;
-
 use crate::model::data::{Entity, EntityID, EntityKind};
-
-#[cfg(test)]
-use serde_json::{self, json};
+use bdaql::Value;
+use ppom::mdb::{Iter, OMap};
 
 type FieldName = String;
 type EntitySet = OMap<EntityID, bool>;
@@ -18,6 +14,22 @@ pub struct Index {
     field_index: FieldIndex,
     value_index: ValueIndex,
 }
+
+pub struct EntityIDIter {
+    iter: Option<Iter<EntityID, bool>>,
+}
+
+impl Iterator for EntityIDIter {
+    type Item = EntityID;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let (id, true) = self.iter.as_mut()?.next()? {
+                return Some(id);
+            }
+        }
+    }
+}
+
 pub fn new() -> Index {
     Index::new()
 }
@@ -38,8 +50,38 @@ impl Index {
         }
     }
 
-    pub fn find_all(_kind: EntityKind) {
-        todo!("Return an iterator of unique EntityIDs")
+    pub fn with_kind(&self, kind: &EntityKind) -> EntityIDIter {
+        EntityIDIter {
+            iter: self
+                .world_index
+                .get(kind)
+                .ok()
+                .and_then(|id_set| id_set.0.iter().ok()),
+        }
+    }
+    pub fn with_field(&self, kind: &EntityKind, field: &str) -> EntityIDIter {
+        EntityIDIter {
+            iter: self
+                .field_index
+                .get(&(kind.to_owned(), field.to_string()))
+                .ok()
+                .and_then(|id_set| id_set.0.iter().ok()),
+        }
+    }
+    pub fn with_value_eq(
+        &self,
+        kind: &EntityKind,
+        field: &str,
+        value: &Option<Value>,
+    ) -> EntityIDIter {
+        EntityIDIter {
+            iter: self
+                .value_index
+                .get(&(kind.to_owned(), field.to_string()))
+                .ok()
+                .and_then(|v_set| v_set.0.get(value).ok())
+                .and_then(|id_set| id_set.0.iter().ok()),
+        }
     }
 
     pub fn has_entity(&self, entity: &Entity) -> bool {
@@ -195,155 +237,366 @@ fn make_field_list(acessor: Vec<String>, json_value: serde_json::Value) -> Vec<F
     values
 }
 
-#[test]
-fn test_create_index() {
-    let mut index = new();
-    let entity = Entity::Resource(
-        "id".to_owned(),
-        serde_json::from_value(json!({
-            "name": "name",
-            "description": "a description",
-            "namespace": "namespace",
-            "tags": ["a", "b", "c", "d"],
-            "attributes": { "key1": "value1", "key2": "value2", "key3": ["val3a", "val3b", "val3c"] },
-            "function":{
-                "inputs": [{
-                    "name": "param1",
-                    "description": "param1 description",
-                    "parameterKind": "NUMBER",
-                    "defaultValue": 6
-                },{
-                    "name": "param2",
-                    "description": "param2 description",
-                    "parameterKind": "TEXT",
-                    "defaultValue": "a text"
-                },{
-                    "name": "param3",
-                    "description": "param3 description",
-                    "parameterKind": "PATH",
-                    "defaultValue": "/path/to/dir"
-                },{
-                    "name": "param4",
-                    "description": "param4 description",
-                    "parameterKind": "GENERIC",
-                    "defaultValue": "generic"
-                }],
-                "outputs": [],
-                "baseCommand": ["echo", "hello", "world"],
-                "runtimeCapabilities":["ls", "cmd"]
-            }
-        })).unwrap(),
-    );
+#[cfg(test)]
+mod test_super {
+    use super::*;
+    use serde_json::{self, json};
 
-    index.index(&entity).unwrap();
-    assert_eq!(index.has_entity(&entity), true);
-    assert_eq!(index.has_field(&entity, ".name"), true);
-    assert_eq!(index.has_field(&entity, ".description"), true);
-    assert_eq!(index.has_field(&entity, ".namespace"), true);
-    assert_eq!(index.has_field(&entity, ".attributes"), true);
-    assert_eq!(index.has_field(&entity, ".attributes.key1"), true);
-    assert_eq!(index.has_field(&entity, ".attributes.key2"), true);
-    assert_eq!(index.has_field(&entity, ".attributes.key3"), true);
-    assert_eq!(index.has_field(&entity, ".function"), true);
-    assert_eq!(index.has_field(&entity, ".function.inputs"), true);
-    assert_eq!(index.has_field(&entity, ".function.inputs.name"), true);
-    assert_eq!(index.has_field(&entity, ".function.outputs"), false);
-    assert_eq!(
-        index.has_field(&entity, ".function.inputs.description"),
-        true
-    );
-    assert_eq!(
-        index.has_field(&entity, ".function.inputs.parameterKind"),
-        true
-    );
-    assert_eq!(
-        index.has_field(&entity, ".function.inputs.defaultValue"),
-        true
-    );
-    assert_eq!(index.has_field(&entity, ".function.baseCommand"), true);
-    assert_eq!(
-        index.has_field(&entity, ".function.runtimeCapabilities"),
-        true
-    );
+    fn create_entity_a() -> Entity {
+        Entity::Resource(
+            "a".to_owned(),
+            serde_json::from_value(json!({
+                "name": "name",
+                "description": "a description",
+                "namespace": "namespace",
+                "tags": ["a", "b", "c", "d"],
+                "attributes": { "key1": "value1", "key2": "value2", "key3": ["val3a", "val3b", "val3c"] },
+                "function":{
+                    "inputs": [{
+                        "name": "param1",
+                        "description": "param1 description",
+                        "parameterKind": "NUMBER",
+                        "defaultValue": 6
+                    },{
+                        "name": "param2",
+                        "description": "param2 description",
+                        "parameterKind": "TEXT",
+                        "defaultValue": "a text"
+                    },{
+                        "name": "param3",
+                        "description": "param3 description",
+                        "parameterKind": "PATH",
+                        "defaultValue": "/path/to/dir"
+                    },{
+                        "name": "param4",
+                        "description": "param4 description",
+                        "parameterKind": "GENERIC",
+                        "defaultValue": "generic"
+                    }],
+                    "outputs": [],
+                    "baseCommand": ["echo", "hello", "world"],
+                    "runtimeCapabilities":["ls", "cmd"]
+                }
+            })).unwrap(),
+        )
+    }
+    fn create_entity_b() -> Entity {
+        Entity::Resource(
+            "b".to_owned(), //id has changed from a
+            serde_json::from_value(json!({
+                "name": "nameb", //name has changed from a
+                "description": "another description", //description has changed from a
+                "namespace": "namespace",
+                "tags": ["a", "b", "c", "d", "e"], //tag has changed from a. add an 'e' tag.
+                "attributes": { "key1": "value1", "key2": "value2", "key3": ["val3a", "val3b", "val3c"] },
+                "function":{ //same type function as a
+                    "inputs": [{
+                        "name": "param1",
+                        "description": "param1 description",
+                        "parameterKind": "NUMBER",
+                        "defaultValue": 6
+                    },{
+                        "name": "param2",
+                        "description": "param2 description",
+                        "parameterKind": "TEXT",
+                        "defaultValue": "a text"
+                    },{
+                        "name": "param3",
+                        "description": "param3 description",
+                        "parameterKind": "PATH",
+                        "defaultValue": "/path/to/dir"
+                    },{
+                        "name": "param4",
+                        "description": "param4 description",
+                        "parameterKind": "GENERIC",
+                        "defaultValue": "generic"
+                    }],
+                    "outputs": [],
+                    "baseCommand": ["echo", "hello", "world"],
+                    "runtimeCapabilities":["ls", "cmd"]
+                }
+            })).unwrap(),
+        )
+    }
+    fn create_entity_c() -> Entity {
+        Entity::Resource(
+            "c".to_owned(), //id has changed from a
+            serde_json::from_value(json!({
+                "name": "namec", //name has changed from a and b
+                "description": "another description", //description has changed from a
+                "namespace": "namespace",
+                "tags": ["a", "b", "c", "d", "e"], //tag has changed from a. add an 'e' tag.
+                "attributes": { "key1": "value1", "key2": "value2", "key3": ["val3a", "val3b", "val3c"] },
+                "runtime":{ //type has changed from a and b
+                    "container": {
+                        "dockerfile": "MyDockerfile"
+                    }
+                }
+            })).unwrap(),
+        )
+    }
 
-    assert_eq!(
-        index.has_value(&entity, ".name", &Some(Value::Text("name".to_string()))),
-        true
-    );
-    assert_eq!(
-        index.has_value(
-            &entity,
+    fn create_index(entities: Vec<&Entity>) -> Index {
+        let mut index = new();
+        for entity in entities {
+            index.index(entity).unwrap();
+        }
+        index
+    }
+
+    #[test]
+    fn test_with_kind() {
+        let entity = create_entity_a();
+        let index = create_index(vec![&entity]);
+        let mut iter = index.with_kind(&entity.to_kind());
+        assert_eq!(iter.next(), Some(entity.id()));
+        assert_eq!(iter.next(), None);
+    }
+    #[test]
+    fn test_with_field() {
+        let entity = create_entity_a();
+        let index = create_index(vec![&entity]);
+        let ok = &Some(entity.id());
+        let none = &None;
+        let check = |field: &str,
+                     fst: &Option<EntityID>,
+                     snd: &Option<EntityID>,
+                     trd: &Option<EntityID>| {
+            let mut iter = index.with_field(&entity.to_kind(), field);
+            assert_eq!(iter.next(), *fst, "with field: {}", field);
+            assert_eq!(iter.next(), *snd, "with field: {}", field);
+            assert_eq!(iter.next(), *trd, "with field: {}", field);
+        };
+        check(".name", ok, none, none);
+        check(".attributes.key1", ok, none, none);
+        check(".function.inputs.name", ok, none, none);
+        check(".", ok, none, none);
+        check("i dont exist", none, none, none);
+    }
+
+    #[test]
+    fn test_with_value_eq() {
+        let entity = create_entity_a();
+        let index = create_index(vec![&entity]);
+        let ok = &Some(entity.id());
+        let none = &None;
+        let check =
+            |field: &str, value: &Option<Value>, fst: &Option<EntityID>, snd: &Option<EntityID>| {
+                let mut iter = index.with_value_eq(&entity.to_kind(), field, value);
+                assert_eq!(
+                    iter.next(),
+                    *fst,
+                    "test for field:{} and value: {:?}",
+                    field,
+                    value
+                );
+                assert_eq!(
+                    iter.next(),
+                    *snd,
+                    "test for field:{} and value: {:?}",
+                    field,
+                    value
+                );
+            };
+        check(".name", &Some(Value::Text("name".to_string())), ok, none);
+        check(
             ".description",
-            &Some(Value::Text("a description".to_string()))
-        ),
-        true
-    );
-    assert_eq!(
-        index.has_value(
-            &entity,
+            &Some(Value::Text("a description".to_string())),
+            ok,
+            none,
+        );
+        check(
+            ".function.baseCommand",
+            &Some(Value::Text("echo".to_string())),
+            ok,
+            none,
+        );
+    }
+    #[test]
+    fn test_with_value_eq_3() {
+        let ref a = create_entity_a();
+        let ref b = create_entity_b();
+        let ref c = create_entity_c();
+        let index = create_index(vec![&c, &b, &a]);
+        let oka = &Some(a.id());
+        let okb = &Some(b.id());
+        let okc = &Some(c.id());
+        let none = &None;
+        let check = |field: &str,
+                     value: &Option<Value>,
+                     fst: &Option<EntityID>,
+                     snd: &Option<EntityID>,
+                     trd: &Option<EntityID>| {
+            let mut iter = index.with_value_eq(&a.to_kind(), field, value);
+            assert_eq!(
+                iter.next(),
+                *fst,
+                "test for field:{} and value: {:?}",
+                field,
+                value
+            );
+            assert_eq!(
+                iter.next(),
+                *snd,
+                "test for field:{} and value: {:?}",
+                field,
+                value
+            );
+            assert_eq!(
+                iter.next(),
+                *trd,
+                "test for field:{} and value: {:?}",
+                field,
+                value
+            );
+        };
+        check(
+            ".name",
+            &Some(Value::Text("name".to_string())),
+            oka,
+            none,
+            none,
+        );
+        check(
             ".namespace",
-            &Some(Value::Text("namespace".to_string()))
-        ),
-        true
-    );
-    assert_eq!(
-        index.has_value(&entity, ".tags", &Some(Value::Text("a".to_string()))),
-        true
-    );
-    assert_eq!(
-        index.has_value(&entity, ".tags", &Some(Value::Text("b".to_string()))),
-        true
-    );
-    assert_eq!(
-        index.has_value(&entity, ".tags", &Some(Value::Text("c".to_string()))),
-        true
-    );
-    assert_eq!(
-        index.has_value(
-            &entity,
-            ".function.inputs.name",
-            &Some(Value::Text("param1".to_string()))
-        ),
-        true
-    );
-    assert_eq!(
-        index.has_value(
-            &entity,
-            ".function.inputs.description",
-            &Some(Value::Text("param1 description".to_string()))
-        ),
-        true
-    );
-    assert_eq!(
-        index.has_value(
-            &entity,
-            ".function.inputs.defaultValue",
-            &Some(Value::Number(6.0))
-        ),
-        true
-    );
-    assert_eq!(
-        index.has_value(
-            &entity,
-            ".function.inputs.parameterKind",
-            &Some(Value::Text("NUMBER".to_string()))
-        ),
-        true
-    );
-    assert_eq!(
-        index.has_value(
-            &entity,
-            ".function.inputs.parameterKind",
-            &Some(Value::Text("PATH".to_string()))
-        ),
-        true
-    );
-    assert_eq!(
-        index.has_value(
-            &entity,
-            ".function.inputs.parameterKind",
-            &Some(Value::Text("TEXT".to_string()))
-        ),
-        true
-    );
+            &Some(Value::Text("namespace".to_string())),
+            oka,
+            okb,
+            okc,
+        );
+        check(".tags", &Some(Value::Text("e".to_string())), okb, okc, none);
+        check(
+            ".tags",
+            &Some(Value::Text("f".to_string())),
+            none,
+            none,
+            none,
+        );
+    }
+
+    #[test]
+    fn test_has_entity() {
+        let ref entity = create_entity_a();
+        let index = create_index(vec![entity]);
+        assert_eq!(index.has_entity(entity), true);
+    }
+    #[test]
+    fn test_has_field() {
+        let ref entity = create_entity_a();
+        let index = create_index(vec![entity]);
+        assert_eq!(index.has_field(entity, ".name"), true);
+        assert_eq!(index.has_field(entity, ".description"), true);
+        assert_eq!(index.has_field(entity, ".namespace"), true);
+        assert_eq!(index.has_field(entity, ".attributes"), true);
+        assert_eq!(index.has_field(entity, ".attributes.key1"), true);
+        assert_eq!(index.has_field(entity, ".attributes.key2"), true);
+        assert_eq!(index.has_field(entity, ".attributes.key3"), true);
+        assert_eq!(index.has_field(entity, ".function"), true);
+        assert_eq!(index.has_field(entity, ".function.inputs"), true);
+        assert_eq!(index.has_field(entity, ".function.inputs.name"), true);
+        assert_eq!(index.has_field(entity, ".function.outputs"), false);
+    }
+    #[test]
+    fn test_has_value() {
+        let ref entity = create_entity_a();
+        let index = create_index(vec![entity]);
+        assert_eq!(
+            index.has_field(entity, ".function.inputs.description"),
+            true
+        );
+        assert_eq!(
+            index.has_field(entity, ".function.inputs.parameterKind"),
+            true
+        );
+        assert_eq!(
+            index.has_field(entity, ".function.inputs.defaultValue"),
+            true
+        );
+        assert_eq!(index.has_field(entity, ".function.baseCommand"), true);
+        assert_eq!(
+            index.has_field(entity, ".function.runtimeCapabilities"),
+            true
+        );
+
+        assert_eq!(
+            index.has_value(entity, ".name", &Some(Value::Text("name".to_string()))),
+            true
+        );
+        assert_eq!(
+            index.has_value(
+                entity,
+                ".description",
+                &Some(Value::Text("a description".to_string()))
+            ),
+            true
+        );
+        assert_eq!(
+            index.has_value(
+                entity,
+                ".namespace",
+                &Some(Value::Text("namespace".to_string()))
+            ),
+            true
+        );
+        assert_eq!(
+            index.has_value(entity, ".tags", &Some(Value::Text("a".to_string()))),
+            true
+        );
+        assert_eq!(
+            index.has_value(entity, ".tags", &Some(Value::Text("b".to_string()))),
+            true
+        );
+        assert_eq!(
+            index.has_value(entity, ".tags", &Some(Value::Text("c".to_string()))),
+            true
+        );
+        assert_eq!(
+            index.has_value(
+                entity,
+                ".function.inputs.name",
+                &Some(Value::Text("param1".to_string()))
+            ),
+            true
+        );
+        assert_eq!(
+            index.has_value(
+                entity,
+                ".function.inputs.description",
+                &Some(Value::Text("param1 description".to_string()))
+            ),
+            true
+        );
+        assert_eq!(
+            index.has_value(
+                entity,
+                ".function.inputs.defaultValue",
+                &Some(Value::Number(6.0))
+            ),
+            true
+        );
+        assert_eq!(
+            index.has_value(
+                entity,
+                ".function.inputs.parameterKind",
+                &Some(Value::Text("NUMBER".to_string()))
+            ),
+            true
+        );
+        assert_eq!(
+            index.has_value(
+                entity,
+                ".function.inputs.parameterKind",
+                &Some(Value::Text("PATH".to_string()))
+            ),
+            true
+        );
+        assert_eq!(
+            index.has_value(
+                entity,
+                ".function.inputs.parameterKind",
+                &Some(Value::Text("TEXT".to_string()))
+            ),
+            true
+        );
+    }
 }
