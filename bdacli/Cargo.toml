@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 bdaproto = { path = "../bdaproto" }
 bdacore = { path = "../bdacore" }
-bdaql = { path = "../bdaql" }
 tonic = "0.6"
 prost = "0.9"
 prost-types = "0.9"

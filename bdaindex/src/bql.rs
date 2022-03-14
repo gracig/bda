@@ -18,10 +18,12 @@ pub fn from_str(s: &str) -> Result<Ast, String> {
 
 #[derive(PartialEq, Debug, Clone, PartialOrd, Eq, Serialize, Deserialize)]
 pub enum Value {
+    Bottom,
     Rational(Rational),
     Integral(i64),
     Text(String),
     Boolean(bool),
+    Top,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -32,38 +34,38 @@ pub enum Ast {
     Complement(Box<Ast>, Box<Ast>),
     All,
     Equal {
-        fname: String,
-        fvalue: Option<Value>,
+        field: String,
+        value: Value,
         negate: bool,
     },
     Defined {
-        fname: String,
+        field: String,
         negate: bool,
     },
     LessThan {
-        fname: String,
-        fvalue: Option<Value>,
+        field: String,
+        value: Value,
     },
     LessThanOrEqual {
-        fname: String,
-        fvalue: Option<Value>,
+        field: String,
+        value: Value,
     },
     GreaterThan {
-        fname: String,
-        fvalue: Option<Value>,
+        field: String,
+        value: Value,
     },
     GreaterThanOrEqual {
-        fname: String,
-        fvalue: Option<Value>,
+        field: String,
+        value: Value,
     },
     ContainsAll {
-        fname: String,
-        fvalues: Vec<Option<Value>>,
+        field: String,
+        values: Vec<Value>,
         negate: bool,
     },
     ContainsAny {
-        fname: String,
-        fvalues: Vec<Option<Value>>,
+        field: String,
+        values: Vec<Value>,
         negate: bool,
     },
 }
@@ -216,12 +218,16 @@ impl Ord for Value {
         match self {
             Value::Text(t) => match other {
                 Value::Text(tt) => t.cmp(tt),
+                Value::Bottom => Ordering::Greater,
+                Value::Top => Ordering::Less,
                 Value::Rational(_) => Ordering::Greater,
-                Value::Boolean(_) => Ordering::Less,
                 Value::Integral(_) => Ordering::Greater,
+                Value::Boolean(_) => Ordering::Less,
             },
             Value::Boolean(b) => match other {
                 Value::Boolean(bb) => b.cmp(bb),
+                Value::Bottom => Ordering::Greater,
+                Value::Top => Ordering::Less,
                 Value::Rational(_) => Ordering::Greater,
                 Value::Text(_) => Ordering::Greater,
                 Value::Integral(_) => Ordering::Greater,
@@ -232,11 +238,15 @@ impl Ord for Value {
                 Value::Rational(nn) if (*n as f64) > nn.value => Ordering::Greater,
                 Value::Rational(nn) if (*n as f64) < nn.value => Ordering::Less,
                 Value::Rational(_) => Ordering::Equal,
+                Value::Bottom => Ordering::Greater,
+                Value::Top => Ordering::Less,
                 Value::Text(_) => Ordering::Less,
                 Value::Boolean(_) => Ordering::Less,
             },
             Value::Rational(n) if n.value.is_nan() => match other {
                 Value::Rational(nn) if nn.value.is_nan() => Ordering::Equal,
+                Value::Bottom => Ordering::Greater,
+                Value::Top => Ordering::Less,
                 _ => Ordering::Less,
             },
             Value::Rational(n) => match other {
@@ -247,8 +257,18 @@ impl Ord for Value {
                 Value::Integral(nn) if n.value > (*nn as f64) => Ordering::Greater,
                 Value::Integral(nn) if n.value < (*nn as f64) => Ordering::Less,
                 Value::Integral(_) => Ordering::Equal,
+                Value::Bottom => Ordering::Greater,
+                Value::Top => Ordering::Less,
                 Value::Text(_) => Ordering::Less,
                 Value::Boolean(_) => Ordering::Less,
+            },
+            Value::Bottom => match other {
+                &Value::Bottom => Ordering::Equal,
+                _ => Ordering::Less,
+            },
+            Value::Top => match other {
+                &Value::Top => Ordering::Equal,
+                _ => Ordering::Greater,
             },
         }
     }

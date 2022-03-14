@@ -1,141 +1,419 @@
-use bdaql::{Rational, Value as BValue};
-use flat::{FlatFieldIterator, FlatValueIterator};
+pub mod backend;
+pub mod bql;
+pub mod flatserde;
+use backend::{Batch, IndexKey, IndexValue};
+use bql::{Ast, Value};
 use serde::{de::DeserializeOwned, Serialize};
-use serde_json::Value as JValue;
-use std::{error::Error, fmt::Debug, sync::Arc};
-
-mod backend {
-    #[cfg(test)]
-    use mockall::{automock, predicate::*};
-    #[cfg_attr(test, automock)]
-    pub trait Backend {
-        fn update(&self, batch: super::Batch) -> Result<(), Box<dyn std::error::Error>>;
-    }
-}
+use std::{error::Error, fmt::Debug, ops::RangeBounds, sync::Arc};
 
 pub struct Index<T: backend::Backend> {
-    name: String,
     backend: Arc<T>,
 }
-pub fn new<T: backend::Backend>(name: &str, backend: Arc<T>) -> Index<T> {
-    Index::new(name, backend)
+
+pub fn new<T: backend::Backend>(backend: Arc<T>) -> Index<T> {
+    Index::new(backend)
 }
 
 impl<T: backend::Backend> Index<T> {
-    pub fn new(name: &str, backend: Arc<T>) -> Self {
-        Self {
-            name: name.to_string(),
-            backend,
-        }
+    pub fn new(backend: Arc<T>) -> Self {
+        Self { backend }
     }
-    pub fn index<V>(&self, id: &str, data: V) -> Result<(), Box<dyn Error>>
+
+    pub fn insert<V>(&self, id: &str, data: V) -> Result<(), Box<dyn Error>>
     where
-        V: Clone + Debug + PartialEq<V> + Serialize + Eq + DeserializeOwned,
+        V: Clone + Debug + PartialEq<V> + Serialize + DeserializeOwned,
     {
-        make_batch(&self.name, id, data).and_then(|batch| self.backend.update(batch))
+        Batch::add_data(id, data).and_then(|batch| self.backend.update(batch))
+    }
+
+    pub fn remove<V>(&self, id: &str, data: V) -> Result<(), Box<dyn Error>>
+    where
+        V: Clone + Debug + PartialEq<V> + Serialize + DeserializeOwned,
+    {
+        Batch::del_data(id, data).and_then(|batch| self.backend.update(batch))
+    }
+
+    pub fn search(
+        &self,
+        ast: Box<Ast>,
+    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+        match *ast {
+            Ast::Intersection(a, b) => Ok(self.and(self.search(a)?, self.search(b)?)),
+            Ast::Union(a, b) => Ok(self.or(self.search(a)?, self.search(b)?)),
+            Ast::Difference(a, b) => Ok(self.diff(self.search(a)?, self.search(b)?)),
+            Ast::Complement(a, b) => Ok(self.complement(self.search(a)?, self.search(b)?)),
+            Ast::All => self.all(),
+            Ast::Equal {
+                field,
+                value,
+                negate,
+            } => self.is_eq(&field, &value).and_then(|items| {
+                if negate {
+                    Ok(self.diff(self.is_defined(&field)?, items))
+                } else {
+                    Ok(items)
+                }
+            }),
+            Ast::Defined { field, negate } => self.is_defined(&field).and_then(|items| {
+                if negate {
+                    Ok(self.diff(self.all()?, items))
+                } else {
+                    Ok(items)
+                }
+            }),
+            Ast::LessThan { field, value } => self.is_less(&field, &value),
+            Ast::LessThanOrEqual { field, value } => self.is_less_or_eq(&field, &value),
+            Ast::GreaterThan { field, value } => self.is_greater(&field, &value),
+            Ast::GreaterThanOrEqual { field, value } => self.is_greater_or_eq(&field, &value),
+            Ast::ContainsAll {
+                field,
+                values,
+                negate,
+            } => self.contains_all(&field, &values).and_then(|items| {
+                if negate {
+                    Ok(self.diff(self.all()?, items))
+                } else {
+                    Ok(items)
+                }
+            }),
+            Ast::ContainsAny {
+                field,
+                values,
+                negate,
+            } => self.contains_any(&field, &values).and_then(|items| {
+                if negate {
+                    Ok(self.diff(self.all()?, items))
+                } else {
+                    Ok(items)
+                }
+            }),
+        }
+    }
+
+    pub fn field_values(
+        &self,
+        field: &str,
+    ) -> Result<Box<dyn Iterator<Item = Value>>, Box<dyn Error>> {
+        self.backend
+            .key_scan(min_key(field)..max_key(field))
+            .and_then(|iter| {
+                Ok(Box::new(iter.filter_map(|ks| match ks.key {
+                    IndexKey::FieldKey { field: _ } => None,
+                    IndexKey::ValueKey { field: _, value } => Some(value),
+                })) as Box<dyn Iterator<Item = Value>>)
+            })
+    }
+
+    pub fn is_defined(
+        &self,
+        field: &str,
+    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+        self.backend.value_scan(
+            &IndexKey::FieldKey {
+                field: field.to_owned(),
+            },
+            ..,
+        )
+    }
+
+    pub fn all(&self) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+        self.is_defined(".")
+    }
+
+    pub fn is_less(
+        &self,
+        field: &str,
+        value: &Value,
+    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+        self.range(min_key(field)..vkey(field, value), true)
+    }
+
+    pub fn is_less_or_eq(
+        &self,
+        field: &str,
+        value: &Value,
+    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+        self.range(min_key(field)..=vkey(field, value), true)
+    }
+
+    pub fn is_greater(
+        &self,
+        field: &str,
+        value: &Value,
+    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+        self.range(vkey(field, value)..max_key(field), true)
+    }
+
+    pub fn is_greater_or_eq(
+        &self,
+        field: &str,
+        value: &Value,
+    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+        self.range(vkey(field, value)..max_key(field), false)
+    }
+
+    pub fn is_eq(
+        &self,
+        field: &str,
+        value: &Value,
+    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+        self.range(vkey(field, value)..=vkey(field, value), false)
+    }
+
+    pub fn contains_all(
+        &self,
+        field: &str,
+        values: &Vec<Value>,
+    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+        values
+            .into_iter()
+            .try_fold(Vec::new(), |mut stack, value| {
+                self.is_eq(field, value).and_then(|vs_iter| {
+                    stack.push(vs_iter);
+                    if stack.len() > 1 {
+                        let a = stack.pop().unwrap();
+                        let b = stack.pop().unwrap();
+                        stack.push(self.and(a, b));
+                    }
+                    Ok(stack)
+                })
+            })
+            .and_then(|mut stack| Ok(stack.pop().unwrap_or(Box::new(Vec::new().into_iter()))))
+    }
+
+    pub fn contains_any(
+        &self,
+        field: &str,
+        values: &Vec<Value>,
+    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+        values
+            .into_iter()
+            .try_fold(Vec::new(), |mut stack, value| {
+                self.is_eq(field, value).and_then(|vs_iter| {
+                    stack.push(vs_iter);
+                    if stack.len() > 1 {
+                        let a = stack.pop().unwrap();
+                        let b = stack.pop().unwrap();
+                        stack.push(self.or(a, b));
+                    }
+                    Ok(stack)
+                })
+            })
+            .and_then(|mut stack| Ok(stack.pop().unwrap_or(Box::new(Vec::new().into_iter()))))
+    }
+
+    pub fn and(
+        &self,
+        a: Box<dyn Iterator<Item = IndexValue>>,
+        b: Box<dyn Iterator<Item = IndexValue>>,
+    ) -> Box<dyn Iterator<Item = IndexValue>> {
+        Box::new(IndexValueMerge::new(SetOperation::And, a, b))
+    }
+
+    pub fn or(
+        &self,
+        a: Box<dyn Iterator<Item = IndexValue>>,
+        b: Box<dyn Iterator<Item = IndexValue>>,
+    ) -> Box<dyn Iterator<Item = IndexValue>> {
+        Box::new(IndexValueMerge::new(SetOperation::Or, a, b))
+    }
+    pub fn diff(
+        &self,
+        a: Box<dyn Iterator<Item = IndexValue>>,
+        b: Box<dyn Iterator<Item = IndexValue>>,
+    ) -> Box<dyn Iterator<Item = IndexValue>> {
+        Box::new(IndexValueMerge::new(SetOperation::Diff, a, b))
+    }
+    pub fn complement(
+        &self,
+        a: Box<dyn Iterator<Item = IndexValue>>,
+        b: Box<dyn Iterator<Item = IndexValue>>,
+    ) -> Box<dyn Iterator<Item = IndexValue>> {
+        Box::new(IndexValueMerge::new(SetOperation::Diff, b, a))
+    }
+
+    fn range<R: RangeBounds<IndexKey> + Clone + 'static>(
+        &self,
+        range: R,
+        exclude_start: bool,
+    ) -> Result<Box<dyn Iterator<Item = IndexValue>>, Box<dyn Error>> {
+        self.backend
+            .key_scan(range.clone())
+            .and_then(|ks_iter| {
+                Ok(ks_iter
+                    .filter(|item| {
+                        if exclude_start {
+                            match range.clone().start_bound() {
+                                std::ops::Bound::Included(x) => item.key.gt(x),
+                                _ => true,
+                            }
+                        } else {
+                            true
+                        }
+                    })
+                    .fold(
+                        (
+                            Vec::new(),
+                            IndexValue::IDStrValue("".to_owned()),
+                            IndexValue::IDStrValue("~".to_owned()),
+                        ),
+                        |(mut vec, min, max), item| {
+                            (
+                                {
+                                    vec.push(item.key);
+                                    vec
+                                },
+                                if item.min.gt(&min) { item.min } else { min },
+                                if item.max.lt(&max) { item.max } else { max },
+                            )
+                        },
+                    ))
+            })
+            .and_then(|(keys, min, max)| {
+                keys.into_iter()
+                    .try_fold(Vec::new(), |mut stack, ref key| {
+                        self.backend
+                            .value_scan(key, min.clone()..=max.clone())
+                            .and_then(|vs_iter| {
+                                stack.push(vs_iter);
+                                if stack.len() > 1 {
+                                    let a = stack.pop().unwrap();
+                                    let b = stack.pop().unwrap();
+                                    stack.push(self.and(a, b));
+                                }
+                                Ok(stack)
+                            })
+                    })
+                    .and_then(|mut stack| {
+                        Ok(stack.pop().unwrap_or(Box::new(Vec::new().into_iter())))
+                    })
+            })
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Serialize)]
-pub enum IndexKey {
-    FieldKey {
-        index: String,
-        field: String,
-    },
-    ValueKey {
-        index: String,
-        field: String,
-        value: Option<BValue>,
-    },
-}
-#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Serialize)]
-pub enum IndexValue {
-    IDStrValue(String),
-    IDIntValue(usize),
-}
-#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Serialize)]
-pub enum BatchOp {
-    Add(IndexKey, IndexValue),
-    Put(IndexKey, IndexValue),
-    Del(IndexKey),
-}
-#[derive(Debug, Clone, PartialEq)]
-pub struct Batch {
-    items: Vec<BatchOp>,
-}
-impl Batch {
-    pub fn new() -> Self {
-        Batch { items: Vec::new() }
+fn vkey(field: &str, value: &Value) -> IndexKey {
+    IndexKey::ValueKey {
+        field: field.to_owned(),
+        value: value.clone(),
     }
-    pub fn iter(&self) -> BatchIter {
-        BatchIter {
-            iter: Box::new(self.items.clone().into_iter()),
+}
+fn min_value() -> Value {
+    Value::Bottom
+}
+fn min_key(field: &str) -> IndexKey {
+    vkey(field, &min_value())
+}
+fn max_value() -> Value {
+    Value::Top
+}
+fn max_key(field: &str) -> IndexKey {
+    vkey(field, &max_value())
+}
+
+enum SetOperation {
+    And,
+    Or,
+    Diff,
+}
+pub struct IndexValueMerge {
+    iter_a: Box<dyn Iterator<Item = IndexValue>>,
+    iter_b: Box<dyn Iterator<Item = IndexValue>>,
+    read_a: bool,
+    read_b: bool,
+    next_a: Option<IndexValue>,
+    next_b: Option<IndexValue>,
+    set_op: SetOperation,
+}
+
+impl IndexValueMerge {
+    fn new(
+        set_op: SetOperation,
+        iter_a: Box<dyn Iterator<Item = IndexValue>>,
+        iter_b: Box<dyn Iterator<Item = IndexValue>>,
+    ) -> Self {
+        IndexValueMerge {
+            set_op,
+            iter_a,
+            iter_b,
+            read_a: true,
+            read_b: true,
+            next_a: None,
+            next_b: None,
         }
     }
 }
-pub struct BatchIter {
-    iter: Box<dyn Iterator<Item = BatchOp>>,
-}
-impl Iterator for BatchIter {
-    type Item = BatchOp;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-fn to_bql_value(jv: JValue) -> Option<BValue> {
-    match jv {
-        JValue::Bool(vv) => Some(BValue::Boolean(vv)),
-        JValue::Number(vv) => match vv.as_f64() {
-            Some(n) => Some(BValue::Rational(Rational::from(n))),
-            None => Some(BValue::Rational(Rational::from(f64::NAN))),
-        },
-        JValue::String(vv) => Some(BValue::Text(vv)),
-        _ => None,
-    }
-}
 
-fn make_batch<V>(index_name: &str, id: &str, data: V) -> Result<Batch, Box<dyn Error>>
-where
-    V: Clone + Debug + PartialEq<V> + Serialize + Eq + DeserializeOwned,
-{
-    serde_json::to_value(&data)
-        .map_err(|error| Box::new(error) as Box<dyn std::error::Error>)
-        .and_then(|ref data| {
-            Ok(Batch {
-                items: FlatValueIterator::new(data)
-                    .map(|(k, v)| {
-                        BatchOp::Add(
-                            IndexKey::ValueKey {
-                                index: index_name.to_owned(),
-                                field: k.to_owned(),
-                                value: to_bql_value(serde_json::to_value(v).unwrap()),
-                            },
-                            IndexValue::IDStrValue(id.to_owned()),
-                        )
-                    })
-                    .chain(FlatFieldIterator::new(data).map(|k| {
-                        BatchOp::Add(
-                            IndexKey::FieldKey {
-                                index: index_name.to_owned(),
-                                field: k.to_owned(),
-                            },
-                            IndexValue::IDStrValue(id.to_owned()),
-                        )
-                    }))
-                    .collect(),
-            })
-        })
+impl Iterator for IndexValueMerge {
+    type Item = IndexValue;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if self.read_a {
+                self.next_a = self.iter_a.next();
+                if self.next_a == None {
+                    self.read_a = false;
+                }
+            }
+            if self.read_b {
+                self.next_b = self.iter_b.next();
+                if self.next_b == None {
+                    self.read_b = false;
+                }
+            }
+            match (&self.next_a, &self.next_b) {
+                (None, None) => return None,
+                (None, Some(b)) => {
+                    self.read_a = false;
+                    self.read_b = true;
+                    match self.set_op {
+                        SetOperation::And | SetOperation::Diff => {}
+                        SetOperation::Or => return Some(b.clone()),
+                    }
+                }
+                (Some(a), None) => {
+                    self.read_a = true;
+                    self.read_b = false;
+                    match self.set_op {
+                        SetOperation::And => {}
+                        SetOperation::Or | SetOperation::Diff => return Some(a.clone()),
+                    }
+                }
+                (Some(a), Some(b)) if a < b => {
+                    self.read_a = true;
+                    self.read_b = false;
+                    match self.set_op {
+                        SetOperation::And => {}
+                        SetOperation::Or | SetOperation::Diff => return Some(a.clone()),
+                    }
+                }
+                (Some(a), Some(b)) if a > b => {
+                    self.read_a = false;
+                    self.read_b = true;
+                    match self.set_op {
+                        SetOperation::And | SetOperation::Diff => {}
+                        SetOperation::Or => return Some(b.clone()),
+                    }
+                }
+                (Some(a), Some(_)) => {
+                    self.read_a = true;
+                    self.read_b = true;
+                    match self.set_op {
+                        SetOperation::Diff => {}
+                        SetOperation::And | SetOperation::Or => return Some(a.clone()),
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod test_super {
-
     use super::*;
     use mockall::predicate;
     use serde_json::json;
-
     #[test]
     fn test_index() {
+        let id = "my_id";
         let data = json!({
             "keya":true,
             "keyb":["valb1",],
@@ -145,193 +423,28 @@ mod test_super {
                 "keycc": 2 as i64, "keycd": ["c","d"]
             }
         });
-        let ns = "my_index";
-        let id = "my_id";
-        let batch = make_batch(ns.clone(), id.clone(), data.clone()).unwrap();
+        let batch = Batch::add_data(id.clone(), data.clone()).unwrap();
         let mut backend = backend::MockBackend::new();
         backend
             .expect_update()
             .times(1)
             .with(predicate::eq(batch.clone()))
             .returning(|_| Ok(()));
-        let index = Index::new(ns.clone(), Arc::new(backend));
-        match index.index(id.clone(), data.clone()) {
+        let index = Index::new(Arc::new(backend));
+        match index.insert(id.clone(), data.clone()) {
             Ok(_) => {}
             Err(e) => panic!("Unexpected error on test: {}", e),
         }
-
         let mut backend = backend::MockBackend::new();
         backend
             .expect_update()
             .times(1)
             .with(predicate::eq(batch.clone()))
             .returning(|_| Err("new error")?);
-        let index = Index::new(ns.clone(), Arc::new(backend));
-        match index.index(id, data) {
+        let index = Index::new(Arc::new(backend));
+        match index.insert(id, data) {
             Ok(_) => panic!("Should have returned an error"),
             Err(_) => {}
-        }
-    }
-}
-
-mod flat {
-    use serde_json::Value;
-    use std::collections::{HashMap, VecDeque};
-
-    pub struct FlatValueIterator {
-        stack: VecDeque<(Vec<String>, Value)>,
-    }
-    impl FlatValueIterator {
-        pub fn new(v: &Value) -> Self {
-            FlatValueIterator {
-                stack: VecDeque::from([(Vec::new(), v.clone())]),
-            }
-        }
-    }
-    impl Iterator for FlatValueIterator {
-        type Item = (String, Value);
-        fn next(&mut self) -> Option<Self::Item> {
-            loop {
-                match self.stack.pop_front() {
-                    Some(fv) => match fv {
-                        (f, Value::Array(vs)) => {
-                            for v in vs {
-                                self.stack.push_back((f.clone(), v))
-                            }
-                        }
-                        (f, Value::Object(vs)) => {
-                            for (ff, v) in vs {
-                                let mut f = f.clone();
-                                f.push(ff);
-                                self.stack.push_back((f, v))
-                            }
-                        }
-                        (f, v) => return Some((format!(".{}", f.join(".")), v)),
-                    },
-                    None => return None,
-                }
-            }
-        }
-    }
-
-    pub struct FlatFieldIterator {
-        stack: VecDeque<(Vec<String>, Value)>,
-        field: VecDeque<String>,
-        visit: HashMap<String, bool>,
-    }
-
-    impl FlatFieldIterator {
-        pub fn new(v: &Value) -> Self {
-            FlatFieldIterator {
-                stack: VecDeque::from([(Vec::new(), v.clone())]),
-                field: VecDeque::new(),
-                visit: HashMap::new(),
-            }
-        }
-    }
-
-    impl Iterator for FlatFieldIterator {
-        type Item = String;
-        fn next(&mut self) -> Option<Self::Item> {
-            while let Some((f, v)) = self.stack.pop_front() {
-                let k = format!(".{}", f.join("."));
-                if !self.visit.contains_key(&k) {
-                    self.visit.insert(k.clone(), true);
-                    self.field.push_back(k)
-                }
-                match v {
-                    Value::Array(vs) => {
-                        for v in vs {
-                            self.stack.push_back((f.clone(), v))
-                        }
-                    }
-                    Value::Object(vs) => {
-                        for (ff, v) in vs {
-                            let mut f = f.clone();
-                            f.push(ff);
-                            self.stack.push_back((f, v))
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            return self.field.pop_front();
-        }
-    }
-
-    #[cfg(test)]
-    mod test_super {
-        use serde_json::json;
-
-        use super::*;
-
-        #[test]
-        fn test_value_iterator() {
-            let v = json!(
-            {
-                "keya":"vala",
-                "keyb":
-                    [
-                        "valb1",
-                        "valb2",
-                        "valb3"
-                    ],
-                "keyc":
-                    {
-                        "keyca": 1 as i64,
-                        "keycb": ["a","b"],
-                        "keycc": 2 as i64,
-                        "keycd": ["c","d"]
-                    }
-            });
-            let mut iter = FlatValueIterator::new(&v);
-            assert_eq!(iter.next(), Some((".keya".to_string(), json!("vala"))));
-            assert_eq!(iter.next(), Some((".keyb".to_string(), json!("valb1"))));
-            assert_eq!(iter.next(), Some((".keyb".to_string(), json!("valb2"))));
-            assert_eq!(iter.next(), Some((".keyb".to_string(), json!("valb3"))));
-            assert_eq!(
-                iter.next(),
-                Some((".keyc.keyca".to_string(), json!(1 as i64)))
-            );
-            assert_eq!(
-                iter.next(),
-                Some((".keyc.keycc".to_string(), json!(2 as i64)))
-            );
-            assert_eq!(iter.next(), Some((".keyc.keycb".to_string(), json!("a"))));
-            assert_eq!(iter.next(), Some((".keyc.keycb".to_string(), json!("b"))));
-            assert_eq!(iter.next(), Some((".keyc.keycd".to_string(), json!("c"))));
-            assert_eq!(iter.next(), Some((".keyc.keycd".to_string(), json!("d"))));
-            assert_eq!(iter.next(), None);
-        }
-
-        #[test]
-        fn test_field_iterator() {
-            let v = json!(
-            {
-                "keya":"vala",
-                "keyb":
-                    [
-                        "valb1",
-                        "valb2",
-                        "valb3"
-                    ],
-                "keyc":
-                    {
-                        "keyca": 1 as i64,
-                        "keycb": ["a","b"],
-                        "keycc": 2 as i64,
-                        "keycd": ["c","d"]
-                    }
-            });
-            let mut iter = FlatFieldIterator::new(&v);
-            assert_eq!(iter.next(), Some(".".to_string()));
-            assert_eq!(iter.next(), Some(".keya".to_string()));
-            assert_eq!(iter.next(), Some(".keyb".to_string()));
-            assert_eq!(iter.next(), Some(".keyc".to_string()));
-            assert_eq!(iter.next(), Some(".keyc.keyca".to_string()));
-            assert_eq!(iter.next(), Some(".keyc.keycb".to_string()));
-            assert_eq!(iter.next(), Some(".keyc.keycc".to_string()));
-            assert_eq!(iter.next(), Some(".keyc.keycd".to_string()));
         }
     }
 }

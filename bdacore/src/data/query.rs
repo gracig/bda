@@ -1,6 +1,7 @@
 use crate::logic;
+use bdaindex::bql;
+use bdaindex::bql::Ast;
 use bdaproto::{DelResourcesRequest, GetResourcesRequest};
-use bdaql::Ast;
 
 use super::EntityKind;
 
@@ -30,7 +31,7 @@ impl Query {
         .and_then(|ref bql| {
             Ok(Query {
                 kind: EntityKind::Resource,
-                ast: bdaql::from_str(bql)?,
+                ast: bql::from_str(bql)?,
             })
         })
     }
@@ -47,7 +48,7 @@ impl Query {
         .and_then(|ref bql| {
             Ok(Query {
                 kind: EntityKind::Resource,
-                ast: bdaql::from_str(bql)?,
+                ast: bql::from_str(bql)?,
             })
         })
     }

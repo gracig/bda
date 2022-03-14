@@ -2,6 +2,7 @@ use bdacore::data::datastore::mem::MemDatastore;
 use bdacore::data::query::Query;
 use bdacore::data::{self, EntityKind};
 use bdacore::{self, logic};
+use bdaindex::backend::llrb::LLRBBackend;
 use bdaproto::bda_server::Bda;
 use bdaproto::{
     self, DelResourceRequest, DelResourceResponse, DelResourcesRequest, GetKindsRequest,
@@ -20,7 +21,9 @@ pub struct BDADatastoreService {
 impl BDADatastoreService {
     pub fn new_mem() -> BDADatastoreService {
         BDADatastoreService {
-            data: Arc::new(data::new(Arc::new(MemDatastore::new()))),
+            data: Arc::new(data::new(Arc::new(MemDatastore::new(Arc::new(
+                LLRBBackend::new(),
+            ))))),
         }
     }
 }

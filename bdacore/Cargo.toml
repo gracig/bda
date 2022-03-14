@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 bdaproto = { path = "../bdaproto" }
-bdaql = { path = "../bdaql" }
+bdaindex = { path = "../bdaindex" }
 prost-types = "0.9"
 serde = "1.0"
 serde_json = "1.0"

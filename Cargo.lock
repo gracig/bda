@@ -117,7 +117,6 @@ version = "0.1.0"
 dependencies = [
  "bdacore",
  "bdaproto",
- "bdaql",
  "clap",
  "futures-core",
  "pbjson",
@@ -138,8 +137,8 @@ dependencies = [
 name = "bdacore"
 version = "0.1.0"
 dependencies = [
+ "bdaindex",
  "bdaproto",
- "bdaql",
  "mockall",
  "ppom",
  "prost-types 0.9.0",
@@ -153,8 +152,8 @@ name = "bdadatastore"
 version = "0.1.0"
 dependencies = [
  "bdacore",
+ "bdaindex",
  "bdaproto",
- "bdaql",
  "clap",
  "futures-core",
  "pbjson",
@@ -178,7 +177,6 @@ version = "0.1.0"
 name = "bdaindex"
 version = "0.1.0"
 dependencies = [
- "bdaql",
  "mockall",
  "ppom",
  "serde",
@@ -201,13 +199,6 @@ dependencies = [
  "tokio",
  "tonic",
  "tonic-build",
-]
-
-[[package]]
-name = "bdaql"
-version = "0.1.0"
-dependencies = [
- "serde",
 ]
 
 [[package]]

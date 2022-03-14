@@ -26,7 +26,7 @@ enum Op {
 
 pub fn parse(s: &str) -> Result<Ast, String> {
     let mut negate = false;
-    let mut fname: String = String::from("");
+    let mut field: String = String::from("");
     let mut step = Step::Initial;
     let mut nodes: Vec<Op> = Vec::new();
     let tokens = scan(s);
@@ -51,7 +51,7 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 }
                 Token::Ident(lit) | Token::Text(lit) => {
                     it.next();
-                    fname = lit;
+                    field = lit;
                     step = Step::Field
                 }
                 Token::All => {
@@ -102,7 +102,7 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 }
                 Token::Or | Token::And | Token::Eof | Token::RtParentheses => {
                     nodes.push(Op::Ast(Ast::Defined {
-                        fname: fname.clone(),
+                        field: field.clone(),
                         negate: negate,
                     }));
                     step = Step::Final;
@@ -118,8 +118,8 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 Token::All => {
                     it.next();
                     nodes.push(Op::Ast(Ast::ContainsAll {
-                        fname: fname.clone(),
-                        fvalues: scan_values(&mut it)?,
+                        field: field.clone(),
+                        values: scan_values(&mut it)?,
                         negate: negate,
                     }));
                     step = Step::Final
@@ -127,8 +127,8 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 Token::Any => {
                     it.next();
                     nodes.push(Op::Ast(Ast::ContainsAny {
-                        fname: fname.clone(),
-                        fvalues: scan_values(&mut it)?,
+                        field: field.clone(),
+                        values: scan_values(&mut it)?,
                         negate: negate,
                     }));
                     step = Step::Final
@@ -139,8 +139,8 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 Token::Text(t) => {
                     it.next();
                     nodes.push(Op::Ast(Ast::Equal {
-                        fname: fname.clone(),
-                        fvalue: Some(Value::Text(t)),
+                        field: field.clone(),
+                        value: Value::Text(t),
                         negate: negate,
                     }));
                     step = Step::Final
@@ -148,8 +148,8 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 Token::Number(n) => {
                     it.next();
                     nodes.push(Op::Ast(Ast::Equal {
-                        fname: fname.clone(),
-                        fvalue: Some(Value::Rational(Rational::from(n))),
+                        field: field.clone(),
+                        value: Value::Rational(Rational::from(n)),
                         negate: negate,
                     }));
                     step = Step::Final
@@ -157,8 +157,8 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 Token::True => {
                     it.next();
                     nodes.push(Op::Ast(Ast::Equal {
-                        fname: fname.clone(),
-                        fvalue: Some(Value::Boolean(true)),
+                        field: field.clone(),
+                        value: Value::Boolean(true),
                         negate: negate,
                     }));
                     step = Step::Final
@@ -166,8 +166,8 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 Token::False => {
                     it.next();
                     nodes.push(Op::Ast(Ast::Equal {
-                        fname: fname.clone(),
-                        fvalue: Some(Value::Boolean(false)),
+                        field: field.clone(),
+                        value: Value::Boolean(false),
                         negate: negate,
                     }));
                     step = Step::Final
@@ -175,8 +175,8 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 Token::None => {
                     it.next();
                     nodes.push(Op::Ast(Ast::Equal {
-                        fname: fname.clone(),
-                        fvalue: None,
+                        field: field.clone(),
+                        value: Value::Bottom,
                         negate: negate,
                     }));
                     step = Step::Final
@@ -184,7 +184,7 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 Token::Defined => {
                     it.next();
                     nodes.push(Op::Ast(Ast::Defined {
-                        fname: fname.clone(),
+                        field: field.clone(),
                         negate: negate,
                     }));
                     step = Step::Final
@@ -205,16 +205,16 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 Token::Text(t) => {
                     it.next();
                     nodes.push(Op::Ast(Ast::LessThan {
-                        fname: fname.clone(),
-                        fvalue: Some(Value::Text(t)),
+                        field: field.clone(),
+                        value: Value::Text(t),
                     }));
                     step = Step::Final
                 }
                 Token::Number(n) => {
                     it.next();
                     nodes.push(Op::Ast(Ast::LessThan {
-                        fname: fname.clone(),
-                        fvalue: Some(Value::Rational(Rational::from(n))),
+                        field: field.clone(),
+                        value: Value::Rational(Rational::from(n)),
                     }));
                     step = Step::Final
                 }
@@ -224,16 +224,16 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 Token::Text(t) => {
                     it.next();
                     nodes.push(Op::Ast(Ast::LessThanOrEqual {
-                        fname: fname.clone(),
-                        fvalue: Some(Value::Text(t)),
+                        field: field.clone(),
+                        value: Value::Text(t),
                     }));
                     step = Step::Final
                 }
                 Token::Number(n) => {
                     it.next();
                     nodes.push(Op::Ast(Ast::LessThanOrEqual {
-                        fname: fname.clone(),
-                        fvalue: Some(Value::Rational(Rational::from(n))),
+                        field: field.clone(),
+                        value: Value::Rational(Rational::from(n)),
                     }));
                     step = Step::Final
                 }
@@ -243,16 +243,16 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 Token::Text(t) => {
                     it.next();
                     nodes.push(Op::Ast(Ast::GreaterThan {
-                        fname: fname.clone(),
-                        fvalue: Some(Value::Text(t)),
+                        field: field.clone(),
+                        value: Value::Text(t),
                     }));
                     step = Step::Final
                 }
                 Token::Number(n) => {
                     it.next();
                     nodes.push(Op::Ast(Ast::GreaterThan {
-                        fname: fname.clone(),
-                        fvalue: Some(Value::Rational(Rational::from(n))),
+                        field: field.clone(),
+                        value: Value::Rational(Rational::from(n)),
                     }));
                     step = Step::Final
                 }
@@ -262,16 +262,16 @@ pub fn parse(s: &str) -> Result<Ast, String> {
                 Token::Text(t) => {
                     it.next();
                     nodes.push(Op::Ast(Ast::GreaterThanOrEqual {
-                        fname: fname.clone(),
-                        fvalue: Some(Value::Text(t)),
+                        field: field.clone(),
+                        value: Value::Text(t),
                     }));
                     step = Step::Final
                 }
                 Token::Number(n) => {
                     it.next();
                     nodes.push(Op::Ast(Ast::GreaterThanOrEqual {
-                        fname: fname.clone(),
-                        fvalue: Some(Value::Rational(Rational::from(n))),
+                        field: field.clone(),
+                        value: Value::Rational(Rational::from(n)),
                     }));
                     step = Step::Final
                 }
@@ -406,12 +406,12 @@ fn solve_nodes(nodes: &Vec<Op>) -> Result<Ast, String> {
 
 fn scan_values<'a, T: Iterator<Item = &'a Token>>(
     it: &mut Peekable<T>,
-) -> Result<Vec<Option<Value>>, String> {
+) -> Result<Vec<Value>, String> {
     match scan_ignore_spaces(it) {
         Some(Token::LtBracket) => it.next(),
         _ => return Err("value expression did not start with left brackets".to_owned()),
     };
-    let mut values: Vec<Option<Value>> = Vec::new();
+    let mut values: Vec<Value> = Vec::new();
     while let Some(tok) = scan_ignore_spaces(it) {
         match tok {
             Token::RtBracket => {
@@ -420,23 +420,23 @@ fn scan_values<'a, T: Iterator<Item = &'a Token>>(
             }
             Token::Text(t) => {
                 it.next();
-                values.push(Some(Value::Text(t)));
+                values.push(Value::Text(t));
             }
             Token::Number(n) => {
                 it.next();
-                values.push(Some(Value::Rational(Rational::from(n))));
+                values.push(Value::Rational(Rational::from(n)));
             }
             Token::True => {
                 it.next();
-                values.push(Some(Value::Boolean(true)));
+                values.push(Value::Boolean(true));
             }
             Token::False => {
                 it.next();
-                values.push(Some(Value::Boolean(false)));
+                values.push(Value::Boolean(false));
             }
             Token::None => {
                 it.next();
-                values.push(None);
+                values.push(Value::Bottom);
             }
             Token::Comma => {
                 it.next();
@@ -497,7 +497,7 @@ mod tests {
     fn test_defined_relation_single_field() {
         assert_eq!(
             Ast::Defined {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: false
             },
             parse(r#"field"#).unwrap()
@@ -507,7 +507,7 @@ mod tests {
     fn test_not_defined_relation_with_exclamation() {
         assert_eq!(
             Ast::Defined {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: true
             },
             parse(r#"!field"#).unwrap()
@@ -517,7 +517,7 @@ mod tests {
     fn test_not_defined_relation_with_exclamation_and_space() {
         assert_eq!(
             Ast::Defined {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: true
             },
             parse(r#"! field"#).unwrap()
@@ -528,7 +528,7 @@ mod tests {
     fn test_not_defined_relation_with_not() {
         assert_eq!(
             Ast::Defined {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: true
             },
             parse(r#"not field"#).unwrap()
@@ -539,7 +539,7 @@ mod tests {
     fn test_defined_relation() {
         assert_eq!(
             Ast::Defined {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: false
             },
             parse(r#"field == defined"#).unwrap()
@@ -549,7 +549,7 @@ mod tests {
     fn test_not_defined_relation() {
         assert_eq!(
             Ast::Defined {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: true
             },
             parse(r#"field != defined"#).unwrap()
@@ -560,7 +560,7 @@ mod tests {
     fn test_not_defined_relation_single_quoted() {
         assert_eq!(
             Ast::Defined {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: true
             },
             parse(r#"'field' != defined"#).unwrap()
@@ -570,7 +570,7 @@ mod tests {
     fn test_defined_relation_double_quoted() {
         assert_eq!(
             Ast::Defined {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: false
             },
             parse(r#""field" == defined"#).unwrap()
@@ -581,7 +581,7 @@ mod tests {
     fn test_defined_relation_and_eq() {
         assert_eq!(
             Ast::Defined {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: false
             },
             parse(r#"field eq defined"#).unwrap()
@@ -592,7 +592,7 @@ mod tests {
     fn test_not_defined_relation_and_ne() {
         assert_eq!(
             Ast::Defined {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: true
             },
             parse(r#"field ne defined"#).unwrap()
@@ -603,9 +603,9 @@ mod tests {
     fn test_eq_relation_with_eq_str() {
         assert_eq!(
             Ast::Equal {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: false,
-                fvalue: Some(Value::Text("abc".to_owned()))
+                value: Value::Text("abc".to_owned())
             },
             parse(r#"field eq "abc""#).unwrap()
         );
@@ -614,9 +614,9 @@ mod tests {
     fn test_eq_relation_with_ne_str() {
         assert_eq!(
             Ast::Equal {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: true,
-                fvalue: Some(Value::Text("abc".to_owned()))
+                value: Value::Text("abc".to_owned())
             },
             parse(r#"field ne "abc""#).unwrap()
         );
@@ -626,9 +626,9 @@ mod tests {
     fn test_eq_relation_with_eq_number() {
         assert_eq!(
             Ast::Equal {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: false,
-                fvalue: Some(Value::Rational(Rational::from(5.0)))
+                value: Value::Rational(Rational::from(5.0 as f64))
             },
             parse(r#"field eq 5"#).unwrap()
         );
@@ -638,9 +638,9 @@ mod tests {
     fn test_eq_relation_with_eq_negative_number() {
         assert_eq!(
             Ast::Equal {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: false,
-                fvalue: Some(Value::Rational(Rational::from(-5.0)))
+                value: Value::Rational(Rational::from(-5.0 as f64))
             },
             parse(r#"field eq -5"#).unwrap()
         );
@@ -650,9 +650,9 @@ mod tests {
     fn test_eq_relation_with_ne_number() {
         assert_eq!(
             Ast::Equal {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: true,
-                fvalue: Some(Value::Rational(Rational::from(5.0)))
+                value: Value::Rational(Rational::from(5.0 as f64))
             },
             parse(r#"field ne 5"#).unwrap()
         );
@@ -662,9 +662,9 @@ mod tests {
     fn test_eq_relation_with_eq_true() {
         assert_eq!(
             Ast::Equal {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: false,
-                fvalue: Some(Value::Boolean(true))
+                value: Value::Boolean(true)
             },
             parse(r#"field eq true"#).unwrap()
         );
@@ -673,9 +673,9 @@ mod tests {
     fn test_eq_relation_with_ne_true() {
         assert_eq!(
             Ast::Equal {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: true,
-                fvalue: Some(Value::Boolean(true))
+                value: Value::Boolean(true)
             },
             parse(r#"field ne true"#).unwrap()
         );
@@ -685,9 +685,9 @@ mod tests {
     fn test_eq_relation_with_eq_false() {
         assert_eq!(
             Ast::Equal {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: false,
-                fvalue: Some(Value::Boolean(false))
+                value: Value::Boolean(false)
             },
             parse(r#"field eq false"#).unwrap()
         );
@@ -697,9 +697,9 @@ mod tests {
     fn test_eq_relation_with_is_false() {
         assert_eq!(
             Ast::Equal {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: false,
-                fvalue: Some(Value::Boolean(false))
+                value: Value::Boolean(false)
             },
             parse(r#"field is false"#).unwrap()
         );
@@ -709,9 +709,9 @@ mod tests {
     fn test_eq_relation_with_ne_false() {
         assert_eq!(
             Ast::Equal {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: true,
-                fvalue: Some(Value::Boolean(false))
+                value: Value::Boolean(false)
             },
             parse(r#"field ne false"#).unwrap()
         );
@@ -721,9 +721,9 @@ mod tests {
     fn test_eq_relation_with_is_null() {
         assert_eq!(
             Ast::Equal {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: false,
-                fvalue: None
+                value: Value::Bottom,
             },
             parse(r#"field is null"#).unwrap()
         );
@@ -732,9 +732,9 @@ mod tests {
     fn test_eq_relation_with_is_nil() {
         assert_eq!(
             Ast::Equal {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: false,
-                fvalue: None
+                value: Value::Bottom,
             },
             parse(r#"field is nil"#).unwrap()
         );
@@ -743,9 +743,9 @@ mod tests {
     fn test_eq_relation_with_is_nothing() {
         assert_eq!(
             Ast::Equal {
-                fname: "field".to_owned(),
+                field: "field".to_owned(),
                 negate: false,
-                fvalue: None
+                value: Value::Bottom,
             },
             parse(r#"field is nothing"#).unwrap()
         );
@@ -755,8 +755,8 @@ mod tests {
     fn test_lt_relation_with_symbol() {
         assert_eq!(
             Ast::LessThan {
-                fname: "field".to_owned(),
-                fvalue: Some(Value::Rational(Rational::from(5.0)))
+                field: "field".to_owned(),
+                value: Value::Rational(Rational::from(5.0 as f64))
             },
             parse(r#"field < 5"#).unwrap()
         );
@@ -765,8 +765,8 @@ mod tests {
     fn test_lt_relation_with_str() {
         assert_eq!(
             Ast::LessThan {
-                fname: "field".to_owned(),
-                fvalue: Some(Value::Rational(Rational::from(5.0)))
+                field: "field".to_owned(),
+                value: Value::Rational(Rational::from(5.0 as f64))
             },
             parse(r#"field lt 5"#).unwrap()
         );
@@ -776,8 +776,8 @@ mod tests {
     fn test_lte_relation_with_symbol() {
         assert_eq!(
             Ast::LessThanOrEqual {
-                fname: "field".to_owned(),
-                fvalue: Some(Value::Rational(Rational::from(5.0)))
+                field: "field".to_owned(),
+                value: Value::Rational(Rational::from(5.0 as f64))
             },
             parse(r#"field <= 5"#).unwrap()
         );
@@ -786,8 +786,8 @@ mod tests {
     fn test_lte_relation_with_str() {
         assert_eq!(
             Ast::LessThanOrEqual {
-                fname: "field".to_owned(),
-                fvalue: Some(Value::Rational(Rational::from(5.0)))
+                field: "field".to_owned(),
+                value: Value::Rational(Rational::from(5.0 as f64))
             },
             parse(r#"field lte 5"#).unwrap()
         );
@@ -797,8 +797,8 @@ mod tests {
     fn test_gt_relation_with_symbol() {
         assert_eq!(
             Ast::GreaterThan {
-                fname: "field".to_owned(),
-                fvalue: Some(Value::Rational(Rational::from(5.0)))
+                field: "field".to_owned(),
+                value: Value::Rational(Rational::from(5.0 as f64))
             },
             parse(r#"field > 5"#).unwrap()
         );
@@ -807,8 +807,8 @@ mod tests {
     fn test_gt_relation_with_str() {
         assert_eq!(
             Ast::GreaterThan {
-                fname: "field".to_owned(),
-                fvalue: Some(Value::Rational(Rational::from(5.0)))
+                field: "field".to_owned(),
+                value: Value::Rational(Rational::from(5.0 as f64))
             },
             parse(r#"field gt 5"#).unwrap()
         );
@@ -818,8 +818,8 @@ mod tests {
     fn test_gte_relation_with_symbol() {
         assert_eq!(
             Ast::GreaterThanOrEqual {
-                fname: "field".to_owned(),
-                fvalue: Some(Value::Rational(Rational::from(5.0)))
+                field: "field".to_owned(),
+                value: Value::Rational(Rational::from(5.0 as f64))
             },
             parse(r#"field >= 5"#).unwrap()
         );
@@ -828,8 +828,8 @@ mod tests {
     fn test_gte_relation_with_str() {
         assert_eq!(
             Ast::GreaterThanOrEqual {
-                fname: "field".to_owned(),
-                fvalue: Some(Value::Rational(Rational::from(5.0)))
+                field: "field".to_owned(),
+                value: Value::Rational(Rational::from(5.0 as f64))
             },
             parse(r#"field gte 5"#).unwrap()
         );
@@ -839,12 +839,12 @@ mod tests {
     fn test_in_all_relation_mixed_values() {
         assert_eq!(
             Ast::ContainsAll {
-                fname: "field".to_owned(),
-                fvalues: vec![
-                    Some(Value::Text("a".to_owned())),
-                    Some(Value::Rational(Rational::from(42.05))),
-                    Some(Value::Boolean(true)),
-                    None,
+                field: "field".to_owned(),
+                values: vec![
+                    Value::Text("a".to_owned()),
+                    Value::Rational(Rational::from(42.05 as f64)),
+                    Value::Boolean(true),
+                    Value::Bottom,
                 ],
                 negate: false
             },
@@ -856,12 +856,12 @@ mod tests {
     fn test_in_all_relation_mixed_values_and_no_spaces() {
         assert_eq!(
             Ast::ContainsAll {
-                fname: "field".to_owned(),
-                fvalues: vec![
-                    Some(Value::Text("a".to_owned())),
-                    Some(Value::Rational(Rational::from(42.05))),
-                    Some(Value::Boolean(true)),
-                    None,
+                field: "field".to_owned(),
+                values: vec![
+                    Value::Text("a".to_owned()),
+                    Value::Rational(Rational::from(42.05 as f64)),
+                    Value::Boolean(true),
+                    Value::Bottom,
                 ],
                 negate: false
             },
@@ -873,12 +873,12 @@ mod tests {
     fn test_not_in_all_relation_mixed_values() {
         assert_eq!(
             Ast::ContainsAll {
-                fname: "field".to_owned(),
-                fvalues: vec![
-                    Some(Value::Text("a".to_owned())),
-                    Some(Value::Rational(Rational::from(42.05))),
-                    Some(Value::Boolean(true)),
-                    None,
+                field: "field".to_owned(),
+                values: vec![
+                    Value::Text("a".to_owned()),
+                    Value::Rational(Rational::from(42.05 as f64)),
+                    Value::Boolean(true),
+                    Value::Bottom,
                 ],
                 negate: true
             },
@@ -890,12 +890,12 @@ mod tests {
     fn test_not_in_all_relation_mixed_values_and_no_spaces() {
         assert_eq!(
             Ast::ContainsAll {
-                fname: "field".to_owned(),
-                fvalues: vec![
-                    Some(Value::Text("a".to_owned())),
-                    Some(Value::Rational(Rational::from(42.05))),
-                    Some(Value::Boolean(true)),
-                    None,
+                field: "field".to_owned(),
+                values: vec![
+                    Value::Text("a".to_owned()),
+                    Value::Rational(Rational::from(42.05 as f64)),
+                    Value::Boolean(true),
+                    Value::Bottom,
                 ],
                 negate: true
             },
@@ -907,12 +907,12 @@ mod tests {
     fn test_in_any_relation_mixed_values() {
         assert_eq!(
             Ast::ContainsAny {
-                fname: "field".to_owned(),
-                fvalues: vec![
-                    Some(Value::Text("a".to_owned())),
-                    Some(Value::Rational(Rational::from(42.05))),
-                    Some(Value::Boolean(true)),
-                    None,
+                field: "field".to_owned(),
+                values: vec![
+                    Value::Text("a".to_owned()),
+                    Value::Rational(Rational::from(42.05 as f64)),
+                    Value::Boolean(true),
+                    Value::Bottom,
                 ],
                 negate: false
             },
@@ -924,12 +924,12 @@ mod tests {
     fn test_in_any_relation_mixed_values_and_no_spaces() {
         assert_eq!(
             Ast::ContainsAny {
-                fname: "field".to_owned(),
-                fvalues: vec![
-                    Some(Value::Text("a".to_owned())),
-                    Some(Value::Rational(Rational::from(42.05))),
-                    Some(Value::Boolean(true)),
-                    None,
+                field: "field".to_owned(),
+                values: vec![
+                    Value::Text("a".to_owned()),
+                    Value::Rational(Rational::from(42.05 as f64)),
+                    Value::Boolean(true),
+                    Value::Bottom,
                 ],
                 negate: false
             },
@@ -941,12 +941,12 @@ mod tests {
     fn test_not_in_any_relation_mixed_values() {
         assert_eq!(
             Ast::ContainsAny {
-                fname: "field".to_owned(),
-                fvalues: vec![
-                    Some(Value::Text("a".to_owned())),
-                    Some(Value::Rational(Rational::from(42.05))),
-                    Some(Value::Boolean(true)),
-                    None,
+                field: "field".to_owned(),
+                values: vec![
+                    Value::Text("a".to_owned()),
+                    Value::Rational(Rational::from(42.05 as f64)),
+                    Value::Boolean(true),
+                    Value::Bottom,
                 ],
                 negate: true
             },
@@ -958,12 +958,12 @@ mod tests {
     fn test_not_in_any_relation_mixed_values_and_no_spaces() {
         assert_eq!(
             Ast::ContainsAny {
-                fname: "field".to_owned(),
-                fvalues: vec![
-                    Some(Value::Text("a".to_owned())),
-                    Some(Value::Rational(Rational::from(42.05))),
-                    Some(Value::Boolean(true)),
-                    None,
+                field: "field".to_owned(),
+                values: vec![
+                    Value::Text("a".to_owned()),
+                    Value::Rational(Rational::from(42.05 as f64)),
+                    Value::Boolean(true),
+                    Value::Bottom,
                 ],
                 negate: true
             },
@@ -977,18 +977,18 @@ mod tests {
             Ast::Union(
                 Box::new(Ast::Union(
                     Box::new(Ast::Equal {
-                        fname: "field".to_owned(),
-                        fvalue: Some(Value::Rational(Rational::from(42.0))),
+                        field: "field".to_owned(),
+                        value: Value::Rational(Rational::from(42.0 as f64)),
                         negate: false
                     }),
                     Box::new(Ast::Equal {
-                        fname: "field".to_owned(),
-                        fvalue: None,
+                        field: "field".to_owned(),
+                        value: Value::Bottom,
                         negate: false
                     }),
                 )),
                 Box::new(Ast::Defined {
-                    fname: "field".to_owned(),
+                    field: "field".to_owned(),
                     negate: false,
                 }),
             ),
@@ -1001,18 +1001,18 @@ mod tests {
         assert_eq!(
             Ast::Intersection(
                 Box::new(Ast::Equal {
-                    fname: "field".to_owned(),
-                    fvalue: Some(Value::Rational(Rational::from(42.0))),
+                    field: "field".to_owned(),
+                    value: Value::Rational(Rational::from(42.0 as f64)),
                     negate: false
                 }),
                 Box::new(Ast::Intersection(
                     Box::new(Ast::Equal {
-                        fname: "field".to_owned(),
-                        fvalue: None,
+                        field: "field".to_owned(),
+                        value: Value::Bottom,
                         negate: false
                     }),
                     Box::new(Ast::Defined {
-                        fname: "field".to_owned(),
+                        field: "field".to_owned(),
                         negate: false,
                     }),
                 )),
@@ -1026,18 +1026,18 @@ mod tests {
             Ast::Intersection(
                 Box::new(Ast::Union(
                     Box::new(Ast::Equal {
-                        fname: "field".to_owned(),
-                        fvalue: Some(Value::Rational(Rational::from(42.0))),
+                        field: "field".to_owned(),
+                        value: Value::Rational(Rational::from(42.0 as f64)),
                         negate: false
                     }),
                     Box::new(Ast::Equal {
-                        fname: "field".to_owned(),
-                        fvalue: None,
+                        field: "field".to_owned(),
+                        value: Value::Bottom,
                         negate: false
                     }),
                 )),
                 Box::new(Ast::Defined {
-                    fname: "field".to_owned(),
+                    field: "field".to_owned(),
                     negate: false
                 })
             ),
