@@ -4,8 +4,9 @@ fn test_serde() {
         name: String::from("John Doe"),
         description: String::from("This is a description"),
         namespace: String::from("default"),
-        revision: String::from("latest"),
+        version: String::from("latest"),
         tags: vec![String::from("tag1"), String::from("tag2")],
+        attributes: None,
         resource_kind: Some(bdaproto::resource::ResourceKind::Runtime(
             bdaproto::Runtime {
                 capabilities: vec!["git".to_owned(), "linux".to_owned()],
@@ -21,7 +22,7 @@ fn test_serde() {
         "name": "John Doe",
         "description": "This is a description",
         "namespace": "default",
-        "revision": "latest",
+        "version": "latest",
         "tags": [ "tag1", "tag2"],
         "runtime": {
             "capabilities": [ "git", "linux" ],
@@ -37,7 +38,7 @@ fn test_serde() {
             name: John Doe
             description: This is a description
             namespace: default
-            revision: latest
+            version: latest
             tags:
             - tag1
             - tag2

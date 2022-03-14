@@ -2,7 +2,7 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Resource {
     #[prost(string, tag = "1")]
-    pub revision: ::prost::alloc::string::String,
+    pub version: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
     pub namespace: ::prost::alloc::string::String,
     #[prost(string, tag = "3")]
@@ -11,6 +11,8 @@ pub struct Resource {
     pub description: ::prost::alloc::string::String,
     #[prost(string, repeated, tag = "5")]
     pub tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "6")]
+    pub attributes: ::core::option::Option<::pbjson_types::Struct>,
     #[prost(oneof = "resource::ResourceKind", tags = "50, 51")]
     pub resource_kind: ::core::option::Option<resource::ResourceKind>,
 }

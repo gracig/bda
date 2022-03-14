@@ -1936,7 +1936,7 @@ impl serde::Serialize for Resource {
     {
         use serde::ser::SerializeStruct;
         let mut len = 0;
-        if !self.revision.is_empty() {
+        if !self.version.is_empty() {
             len += 1;
         }
         if !self.namespace.is_empty() {
@@ -1951,12 +1951,15 @@ impl serde::Serialize for Resource {
         if !self.tags.is_empty() {
             len += 1;
         }
+        if self.attributes.is_some() {
+            len += 1;
+        }
         if self.resource_kind.is_some() {
             len += 1;
         }
         let mut struct_ser = serializer.serialize_struct("bda.Resource", len)?;
-        if !self.revision.is_empty() {
-            struct_ser.serialize_field("revision", &self.revision)?;
+        if !self.version.is_empty() {
+            struct_ser.serialize_field("version", &self.version)?;
         }
         if !self.namespace.is_empty() {
             struct_ser.serialize_field("namespace", &self.namespace)?;
@@ -1969,6 +1972,9 @@ impl serde::Serialize for Resource {
         }
         if !self.tags.is_empty() {
             struct_ser.serialize_field("tags", &self.tags)?;
+        }
+        if let Some(v) = self.attributes.as_ref() {
+            struct_ser.serialize_field("attributes", v)?;
         }
         if let Some(v) = self.resource_kind.as_ref() {
             match v {
@@ -1990,22 +1996,24 @@ impl<'de> serde::Deserialize<'de> for Resource {
         D: serde::Deserializer<'de>,
     {
         const FIELDS: &[&str] = &[
-            "revision",
+            "version",
             "namespace",
             "name",
             "description",
             "tags",
+            "attributes",
             "function",
             "runtime",
         ];
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
-            Revision,
+            Version,
             Namespace,
             Name,
             Description,
             Tags,
+            Attributes,
             Function,
             Runtime,
         }
@@ -2028,11 +2036,12 @@ impl<'de> serde::Deserialize<'de> for Resource {
                         E: serde::de::Error,
                     {
                         match value {
-                            "revision" => Ok(GeneratedField::Revision),
+                            "version" => Ok(GeneratedField::Version),
                             "namespace" => Ok(GeneratedField::Namespace),
                             "name" => Ok(GeneratedField::Name),
                             "description" => Ok(GeneratedField::Description),
                             "tags" => Ok(GeneratedField::Tags),
+                            "attributes" => Ok(GeneratedField::Attributes),
                             "function" => Ok(GeneratedField::Function),
                             "runtime" => Ok(GeneratedField::Runtime),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
@@ -2054,19 +2063,20 @@ impl<'de> serde::Deserialize<'de> for Resource {
                 where
                     V: serde::de::MapAccess<'de>,
             {
-                let mut revision = None;
+                let mut version = None;
                 let mut namespace = None;
                 let mut name = None;
                 let mut description = None;
                 let mut tags = None;
+                let mut attributes = None;
                 let mut resource_kind = None;
                 while let Some(k) = map.next_key()? {
                     match k {
-                        GeneratedField::Revision => {
-                            if revision.is_some() {
-                                return Err(serde::de::Error::duplicate_field("revision"));
+                        GeneratedField::Version => {
+                            if version.is_some() {
+                                return Err(serde::de::Error::duplicate_field("version"));
                             }
-                            revision = Some(map.next_value()?);
+                            version = Some(map.next_value()?);
                         }
                         GeneratedField::Namespace => {
                             if namespace.is_some() {
@@ -2092,6 +2102,12 @@ impl<'de> serde::Deserialize<'de> for Resource {
                             }
                             tags = Some(map.next_value()?);
                         }
+                        GeneratedField::Attributes => {
+                            if attributes.is_some() {
+                                return Err(serde::de::Error::duplicate_field("attributes"));
+                            }
+                            attributes = Some(map.next_value()?);
+                        }
                         GeneratedField::Function => {
                             if resource_kind.is_some() {
                                 return Err(serde::de::Error::duplicate_field("function"));
@@ -2107,11 +2123,12 @@ impl<'de> serde::Deserialize<'de> for Resource {
                     }
                 }
                 Ok(Resource {
-                    revision: revision.unwrap_or_default(),
+                    version: version.unwrap_or_default(),
                     namespace: namespace.unwrap_or_default(),
                     name: name.unwrap_or_default(),
                     description: description.unwrap_or_default(),
                     tags: tags.unwrap_or_default(),
+                    attributes,
                     resource_kind,
                 })
             }

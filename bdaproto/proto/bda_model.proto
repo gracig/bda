@@ -18,11 +18,12 @@ import "google/protobuf/struct.proto";
 
 //Resource represents a resource in the BDA architecture
 message Resource {
-    string revision = 1;
+    string version = 1;
     string namespace = 2;
     string name = 3;
     string description = 4;
     repeated string tags = 5;
+    google.protobuf.Struct attributes = 6;
     oneof resource_kind {
         Function function = 50;
         Runtime runtime = 51;

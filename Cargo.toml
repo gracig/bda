@@ -3,8 +3,10 @@
 members = [
     "bdaproto",
     "bdacore",
-    "bdaindex",
-    "bdaengine",
-    "bdaweb",
     "bdaql",
+    "bdaindex",
+    "bdadatastore",
+    "bdaengine",
+    "bdacli",
+    "bdaweb",
 ]
