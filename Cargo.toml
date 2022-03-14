@@ -1,5 +1,8 @@
 [workspace]
 
 members = [
+    "bdaproto",
+    "bdaindex",
+    "bdaengine",
     "bdaweb",
 ]
