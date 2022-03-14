@@ -24,14 +24,9 @@ message Resource {
     string description = 4;
     repeated string tags = 5;
     oneof resource_kind {
-        Variables variables = 10;
         Function function = 50;
         Runtime runtime = 51;
     }
-}
-
-message Variables {
-    google.protobuf.Struct data = 1;
 }
 
 // Function is a resource that declares parameters and a procedure to be executed in order to apply
