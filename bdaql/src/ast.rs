@@ -1,5 +1,3 @@
-pub mod scanner;
-
 pub enum Value {
     Number(f64),
     Text(String),
