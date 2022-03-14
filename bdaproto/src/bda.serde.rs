@@ -1,6 +1,6 @@
 impl serde::Serialize for Container {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -18,7 +18,7 @@ impl serde::Serialize for Container {
 }
 impl<'de> serde::Deserialize<'de> for Container {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -31,7 +31,7 @@ impl<'de> serde::Deserialize<'de> for Container {
             Dockerfile,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -44,7 +44,7 @@ impl<'de> serde::Deserialize<'de> for Container {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -65,7 +65,7 @@ impl<'de> serde::Deserialize<'de> for Container {
                 formatter.write_str("struct bda.Container")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<Container, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<Container, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -90,7 +90,7 @@ impl<'de> serde::Deserialize<'de> for Container {
 }
 impl serde::Serialize for DelResourceRequest {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -126,7 +126,7 @@ impl serde::Serialize for DelResourceRequest {
 }
 impl<'de> serde::Deserialize<'de> for DelResourceRequest {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -145,7 +145,7 @@ impl<'de> serde::Deserialize<'de> for DelResourceRequest {
             Name,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -158,7 +158,7 @@ impl<'de> serde::Deserialize<'de> for DelResourceRequest {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -182,7 +182,7 @@ impl<'de> serde::Deserialize<'de> for DelResourceRequest {
                 formatter.write_str("struct bda.DelResourceRequest")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<DelResourceRequest, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<DelResourceRequest, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -231,7 +231,7 @@ impl<'de> serde::Deserialize<'de> for DelResourceRequest {
 }
 impl serde::Serialize for DelResourceResponse {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -249,7 +249,7 @@ impl serde::Serialize for DelResourceResponse {
 }
 impl<'de> serde::Deserialize<'de> for DelResourceResponse {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -262,7 +262,7 @@ impl<'de> serde::Deserialize<'de> for DelResourceResponse {
             Updates,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -275,7 +275,7 @@ impl<'de> serde::Deserialize<'de> for DelResourceResponse {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -296,7 +296,7 @@ impl<'de> serde::Deserialize<'de> for DelResourceResponse {
                 formatter.write_str("struct bda.DelResourceResponse")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<DelResourceResponse, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<DelResourceResponse, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -323,7 +323,7 @@ impl<'de> serde::Deserialize<'de> for DelResourceResponse {
 }
 impl serde::Serialize for DelResourcesRequest {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -365,7 +365,7 @@ impl serde::Serialize for DelResourcesRequest {
 }
 impl<'de> serde::Deserialize<'de> for DelResourcesRequest {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -386,7 +386,7 @@ impl<'de> serde::Deserialize<'de> for DelResourcesRequest {
             Bql,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -399,7 +399,7 @@ impl<'de> serde::Deserialize<'de> for DelResourcesRequest {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -424,7 +424,7 @@ impl<'de> serde::Deserialize<'de> for DelResourcesRequest {
                 formatter.write_str("struct bda.DelResourcesRequest")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<DelResourcesRequest, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<DelResourcesRequest, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -481,7 +481,7 @@ impl<'de> serde::Deserialize<'de> for DelResourcesRequest {
 }
 impl serde::Serialize for Function {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -517,7 +517,7 @@ impl serde::Serialize for Function {
 }
 impl<'de> serde::Deserialize<'de> for Function {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -536,7 +536,7 @@ impl<'de> serde::Deserialize<'de> for Function {
             RuntimeCapabilities,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -549,7 +549,7 @@ impl<'de> serde::Deserialize<'de> for Function {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -573,7 +573,7 @@ impl<'de> serde::Deserialize<'de> for Function {
                 formatter.write_str("struct bda.Function")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<Function, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<Function, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -622,7 +622,7 @@ impl<'de> serde::Deserialize<'de> for Function {
 }
 impl serde::Serialize for GetKindsRequest {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -634,7 +634,7 @@ impl serde::Serialize for GetKindsRequest {
 }
 impl<'de> serde::Deserialize<'de> for GetKindsRequest {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -645,7 +645,7 @@ impl<'de> serde::Deserialize<'de> for GetKindsRequest {
         enum GeneratedField {
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -658,7 +658,7 @@ impl<'de> serde::Deserialize<'de> for GetKindsRequest {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -676,7 +676,7 @@ impl<'de> serde::Deserialize<'de> for GetKindsRequest {
                 formatter.write_str("struct bda.GetKindsRequest")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<GetKindsRequest, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<GetKindsRequest, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -690,7 +690,7 @@ impl<'de> serde::Deserialize<'de> for GetKindsRequest {
 }
 impl serde::Serialize for GetKindsResponse {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -708,7 +708,7 @@ impl serde::Serialize for GetKindsResponse {
 }
 impl<'de> serde::Deserialize<'de> for GetKindsResponse {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -721,7 +721,7 @@ impl<'de> serde::Deserialize<'de> for GetKindsResponse {
             Kinds,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -734,7 +734,7 @@ impl<'de> serde::Deserialize<'de> for GetKindsResponse {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -755,7 +755,7 @@ impl<'de> serde::Deserialize<'de> for GetKindsResponse {
                 formatter.write_str("struct bda.GetKindsResponse")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<GetKindsResponse, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<GetKindsResponse, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -780,7 +780,7 @@ impl<'de> serde::Deserialize<'de> for GetKindsResponse {
 }
 impl serde::Serialize for GetNamespacesRequest {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -792,7 +792,7 @@ impl serde::Serialize for GetNamespacesRequest {
 }
 impl<'de> serde::Deserialize<'de> for GetNamespacesRequest {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -803,7 +803,7 @@ impl<'de> serde::Deserialize<'de> for GetNamespacesRequest {
         enum GeneratedField {
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -816,7 +816,7 @@ impl<'de> serde::Deserialize<'de> for GetNamespacesRequest {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -834,7 +834,7 @@ impl<'de> serde::Deserialize<'de> for GetNamespacesRequest {
                 formatter.write_str("struct bda.GetNamespacesRequest")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<GetNamespacesRequest, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<GetNamespacesRequest, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -848,7 +848,7 @@ impl<'de> serde::Deserialize<'de> for GetNamespacesRequest {
 }
 impl serde::Serialize for GetNamespacesResponse {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -866,7 +866,7 @@ impl serde::Serialize for GetNamespacesResponse {
 }
 impl<'de> serde::Deserialize<'de> for GetNamespacesResponse {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -879,7 +879,7 @@ impl<'de> serde::Deserialize<'de> for GetNamespacesResponse {
             Namespaces,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -892,7 +892,7 @@ impl<'de> serde::Deserialize<'de> for GetNamespacesResponse {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -913,7 +913,7 @@ impl<'de> serde::Deserialize<'de> for GetNamespacesResponse {
                 formatter.write_str("struct bda.GetNamespacesResponse")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<GetNamespacesResponse, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<GetNamespacesResponse, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -938,7 +938,7 @@ impl<'de> serde::Deserialize<'de> for GetNamespacesResponse {
 }
 impl serde::Serialize for GetResourceRequest {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -974,7 +974,7 @@ impl serde::Serialize for GetResourceRequest {
 }
 impl<'de> serde::Deserialize<'de> for GetResourceRequest {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -993,7 +993,7 @@ impl<'de> serde::Deserialize<'de> for GetResourceRequest {
             Name,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -1006,7 +1006,7 @@ impl<'de> serde::Deserialize<'de> for GetResourceRequest {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -1030,7 +1030,7 @@ impl<'de> serde::Deserialize<'de> for GetResourceRequest {
                 formatter.write_str("struct bda.GetResourceRequest")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<GetResourceRequest, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<GetResourceRequest, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -1079,7 +1079,7 @@ impl<'de> serde::Deserialize<'de> for GetResourceRequest {
 }
 impl serde::Serialize for GetResourcesRequest {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -1121,7 +1121,7 @@ impl serde::Serialize for GetResourcesRequest {
 }
 impl<'de> serde::Deserialize<'de> for GetResourcesRequest {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -1142,7 +1142,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesRequest {
             Bql,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -1155,7 +1155,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesRequest {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -1180,7 +1180,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesRequest {
                 formatter.write_str("struct bda.GetResourcesRequest")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<GetResourcesRequest, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<GetResourcesRequest, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -1237,7 +1237,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesRequest {
 }
 impl serde::Serialize for GetResourcesResponse {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -1255,7 +1255,7 @@ impl serde::Serialize for GetResourcesResponse {
 }
 impl<'de> serde::Deserialize<'de> for GetResourcesResponse {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -1268,7 +1268,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesResponse {
             Resources,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -1281,7 +1281,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesResponse {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -1302,7 +1302,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesResponse {
                 formatter.write_str("struct bda.GetResourcesResponse")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<GetResourcesResponse, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<GetResourcesResponse, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -1327,7 +1327,7 @@ impl<'de> serde::Deserialize<'de> for GetResourcesResponse {
 }
 impl serde::Serialize for GetVersionsRequest {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -1339,7 +1339,7 @@ impl serde::Serialize for GetVersionsRequest {
 }
 impl<'de> serde::Deserialize<'de> for GetVersionsRequest {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -1350,7 +1350,7 @@ impl<'de> serde::Deserialize<'de> for GetVersionsRequest {
         enum GeneratedField {
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -1363,7 +1363,7 @@ impl<'de> serde::Deserialize<'de> for GetVersionsRequest {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -1381,7 +1381,7 @@ impl<'de> serde::Deserialize<'de> for GetVersionsRequest {
                 formatter.write_str("struct bda.GetVersionsRequest")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<GetVersionsRequest, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<GetVersionsRequest, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -1395,7 +1395,7 @@ impl<'de> serde::Deserialize<'de> for GetVersionsRequest {
 }
 impl serde::Serialize for GetVersionsResponse {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -1413,7 +1413,7 @@ impl serde::Serialize for GetVersionsResponse {
 }
 impl<'de> serde::Deserialize<'de> for GetVersionsResponse {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -1426,7 +1426,7 @@ impl<'de> serde::Deserialize<'de> for GetVersionsResponse {
             Versions,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -1439,7 +1439,7 @@ impl<'de> serde::Deserialize<'de> for GetVersionsResponse {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -1460,7 +1460,7 @@ impl<'de> serde::Deserialize<'de> for GetVersionsResponse {
                 formatter.write_str("struct bda.GetVersionsResponse")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<GetVersionsResponse, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<GetVersionsResponse, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -1485,7 +1485,7 @@ impl<'de> serde::Deserialize<'de> for GetVersionsResponse {
 }
 impl serde::Serialize for Parameter {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -1523,7 +1523,7 @@ impl serde::Serialize for Parameter {
 }
 impl<'de> serde::Deserialize<'de> for Parameter {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -1542,7 +1542,7 @@ impl<'de> serde::Deserialize<'de> for Parameter {
             DefaultValue,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -1555,7 +1555,7 @@ impl<'de> serde::Deserialize<'de> for Parameter {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -1579,7 +1579,7 @@ impl<'de> serde::Deserialize<'de> for Parameter {
                 formatter.write_str("struct bda.Parameter")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<Parameter, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<Parameter, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -1628,7 +1628,7 @@ impl<'de> serde::Deserialize<'de> for Parameter {
 }
 impl serde::Serialize for parameter::ParameterKind {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -1646,7 +1646,7 @@ impl serde::Serialize for parameter::ParameterKind {
 }
 impl<'de> serde::Deserialize<'de> for parameter::ParameterKind {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -1669,7 +1669,7 @@ impl<'de> serde::Deserialize<'de> for parameter::ParameterKind {
                 write!(formatter, "expected one of: {:?}", &FIELDS)
             }
 
-            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+            fn visit_i64<E>(self, v: i64) -> std::result::Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
@@ -1682,7 +1682,7 @@ impl<'de> serde::Deserialize<'de> for parameter::ParameterKind {
                     })
             }
 
-            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+            fn visit_u64<E>(self, v: u64) -> std::result::Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
@@ -1695,7 +1695,7 @@ impl<'de> serde::Deserialize<'de> for parameter::ParameterKind {
                     })
             }
 
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
@@ -1716,7 +1716,7 @@ impl<'de> serde::Deserialize<'de> for parameter::ParameterKind {
 }
 impl serde::Serialize for PutResourceRequest {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -1734,7 +1734,7 @@ impl serde::Serialize for PutResourceRequest {
 }
 impl<'de> serde::Deserialize<'de> for PutResourceRequest {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -1747,7 +1747,7 @@ impl<'de> serde::Deserialize<'de> for PutResourceRequest {
             Resource,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -1760,7 +1760,7 @@ impl<'de> serde::Deserialize<'de> for PutResourceRequest {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -1781,7 +1781,7 @@ impl<'de> serde::Deserialize<'de> for PutResourceRequest {
                 formatter.write_str("struct bda.PutResourceRequest")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<PutResourceRequest, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<PutResourceRequest, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -1806,7 +1806,7 @@ impl<'de> serde::Deserialize<'de> for PutResourceRequest {
 }
 impl serde::Serialize for PutResourceResponse {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -1824,7 +1824,7 @@ impl serde::Serialize for PutResourceResponse {
 }
 impl<'de> serde::Deserialize<'de> for PutResourceResponse {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -1837,7 +1837,7 @@ impl<'de> serde::Deserialize<'de> for PutResourceResponse {
             Updates,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -1850,7 +1850,7 @@ impl<'de> serde::Deserialize<'de> for PutResourceResponse {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -1871,7 +1871,7 @@ impl<'de> serde::Deserialize<'de> for PutResourceResponse {
                 formatter.write_str("struct bda.PutResourceResponse")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<PutResourceResponse, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<PutResourceResponse, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -1898,7 +1898,7 @@ impl<'de> serde::Deserialize<'de> for PutResourceResponse {
 }
 impl serde::Serialize for Resource {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -1959,7 +1959,7 @@ impl serde::Serialize for Resource {
 }
 impl<'de> serde::Deserialize<'de> for Resource {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -1986,7 +1986,7 @@ impl<'de> serde::Deserialize<'de> for Resource {
             Runtime,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -1999,7 +1999,7 @@ impl<'de> serde::Deserialize<'de> for Resource {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -2027,7 +2027,7 @@ impl<'de> serde::Deserialize<'de> for Resource {
                 formatter.write_str("struct bda.Resource")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<Resource, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<Resource, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
@@ -2106,7 +2106,7 @@ impl<'de> serde::Deserialize<'de> for Resource {
 }
 impl serde::Serialize for Runtime {
     #[allow(deprecated)]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -2134,7 +2134,7 @@ impl serde::Serialize for Runtime {
 }
 impl<'de> serde::Deserialize<'de> for Runtime {
     #[allow(deprecated)]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -2149,7 +2149,7 @@ impl<'de> serde::Deserialize<'de> for Runtime {
             Container,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
-            fn deserialize<D>(deserializer: D) -> Result<GeneratedField, D::Error>
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
@@ -2162,7 +2162,7 @@ impl<'de> serde::Deserialize<'de> for Runtime {
                         write!(formatter, "expected one of: {:?}", &FIELDS)
                     }
 
-                    fn visit_str<E>(self, value: &str) -> Result<GeneratedField, E>
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
                     where
                         E: serde::de::Error,
                     {
@@ -2184,7 +2184,7 @@ impl<'de> serde::Deserialize<'de> for Runtime {
                 formatter.write_str("struct bda.Runtime")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<Runtime, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<Runtime, V::Error>
                 where
                     V: serde::de::MapAccess<'de>,
             {
