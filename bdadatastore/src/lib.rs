@@ -1,7 +1,6 @@
-use std::sync::Arc;
-
+use bdacore::data::datastore::mem::MemDatastore;
 use bdacore::data::query::Query;
-use bdacore::data::{Entity, EntityID, EntityKind};
+use bdacore::data::{self, Entity, EntityID, EntityKind};
 use bdacore::{self, logic};
 use bdaproto::bda_server::Bda;
 use bdaproto::{
@@ -10,12 +9,20 @@ use bdaproto::{
     GetResourcesRequest, GetResourcesResponse, GetVersionsRequest, GetVersionsResponse,
     PutResourceRequest, PutResourceResponse, Resource,
 };
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{async_trait, Response, Status};
 
 pub struct BDADatastoreService {
     data: Arc<bdacore::data::Data>,
+}
+impl BDADatastoreService {
+    pub fn new_mem() -> BDADatastoreService {
+        BDADatastoreService {
+            data: Arc::new(data::new(Arc::new(MemDatastore::new()))),
+        }
+    }
 }
 
 #[async_trait]
