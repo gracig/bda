@@ -47,22 +47,22 @@ impl<T: backend::Backend> Index<T> {
             BQL::Or(a, b) => Ok(self.or(self.search(a)?, self.search(b)?)),
             BQL::Diff(a, b) => Ok(self.diff(self.search(a)?, self.search(b)?)),
             BQL::Comp(a, b) => Ok(self.complement(self.search(a)?, self.search(b)?)),
-            BQL::IsPresent => self.all(),
-            BQL::Eq { field, value } => self.is_eq(&field, &value),
+            BQL::IsPresent => self.is_present(),
+            BQL::Eq { field, value } => self.eq(&field, &value),
             BQL::IsDefined { field } => self.is_defined(&field),
-            BQL::LT { field, value } => self.is_less(&field, &value),
-            BQL::LE { field, value } => self.is_less_or_eq(&field, &value),
-            BQL::GT { field, value } => self.is_greater(&field, &value),
-            BQL::GE { field, value } => self.is_greater_or_eq(&field, &value),
-            BQL::All { field, values } => self.contains_all(&field, &values),
-            BQL::Any { field, values } => self.contains_any(&field, &values),
+            BQL::LT { field, value } => self.lt(&field, &value),
+            BQL::LE { field, value } => self.le(&field, &value),
+            BQL::GT { field, value } => self.gt(&field, &value),
+            BQL::GE { field, value } => self.ge(&field, &value),
+            BQL::All { field, values } => self.all(&field, &values),
+            BQL::Any { field, values } => self.any(&field, &values),
             BQL::Not(b) => match *b {
                 BQL::And(..)
                 | BQL::Or(..)
                 | BQL::Diff(..)
                 | BQL::Comp(..)
                 | BQL::Not(..)
-                | BQL::IsPresent => Ok(self.diff(self.all()?, self.search(b)?)),
+                | BQL::IsPresent => Ok(self.diff(self.is_present()?, self.search(b)?)),
                 BQL::Eq { field: ref f, .. }
                 | BQL::IsDefined { field: ref f, .. }
                 | BQL::LT { field: ref f, .. }
@@ -77,7 +77,7 @@ impl<T: backend::Backend> Index<T> {
         }
     }
 
-    pub fn field_values(
+    pub fn values(
         &self,
         field: &str,
     ) -> Result<Box<dyn Iterator<Item = Result<Value, Box<dyn Error>>>>, Box<dyn Error>> {
@@ -107,13 +107,13 @@ impl<T: backend::Backend> Index<T> {
         )
     }
 
-    pub fn all(
+    pub fn is_present(
         &self,
     ) -> Result<Box<dyn Iterator<Item = Result<IndexValue, Box<dyn Error>>>>, Box<dyn Error>> {
         self.is_defined(".")
     }
 
-    pub fn is_less(
+    pub fn lt(
         &self,
         field: &str,
         value: &Value,
@@ -121,7 +121,7 @@ impl<T: backend::Backend> Index<T> {
         self.range(min_key(field)..vkey(field, value), true)
     }
 
-    pub fn is_less_or_eq(
+    pub fn le(
         &self,
         field: &str,
         value: &Value,
@@ -129,7 +129,7 @@ impl<T: backend::Backend> Index<T> {
         self.range(min_key(field)..=vkey(field, value), true)
     }
 
-    pub fn is_greater(
+    pub fn gt(
         &self,
         field: &str,
         value: &Value,
@@ -137,7 +137,7 @@ impl<T: backend::Backend> Index<T> {
         self.range(vkey(field, value)..max_key(field), true)
     }
 
-    pub fn is_greater_or_eq(
+    pub fn ge(
         &self,
         field: &str,
         value: &Value,
@@ -145,7 +145,7 @@ impl<T: backend::Backend> Index<T> {
         self.range(vkey(field, value)..max_key(field), false)
     }
 
-    pub fn is_eq(
+    pub fn eq(
         &self,
         field: &str,
         value: &Value,
@@ -153,7 +153,7 @@ impl<T: backend::Backend> Index<T> {
         self.range(vkey(field, value)..=vkey(field, value), false)
     }
 
-    pub fn contains_all(
+    pub fn all(
         &self,
         field: &str,
         values: &Vec<Value>,
@@ -161,7 +161,7 @@ impl<T: backend::Backend> Index<T> {
         values
             .into_iter()
             .try_fold(Vec::new(), |mut stack, value| {
-                self.is_eq(field, value).and_then(|vs_iter| {
+                self.eq(field, value).and_then(|vs_iter| {
                     stack.push(vs_iter);
                     if stack.len() > 1 {
                         let a = stack.pop().unwrap();
@@ -174,7 +174,7 @@ impl<T: backend::Backend> Index<T> {
             .and_then(|mut stack| Ok(stack.pop().unwrap_or(Box::new(Vec::new().into_iter()))))
     }
 
-    pub fn contains_any(
+    pub fn any(
         &self,
         field: &str,
         values: &Vec<Value>,
@@ -182,7 +182,7 @@ impl<T: backend::Backend> Index<T> {
         values
             .into_iter()
             .try_fold(Vec::new(), |mut stack, value| {
-                self.is_eq(field, value).and_then(|vs_iter| {
+                self.eq(field, value).and_then(|vs_iter| {
                     stack.push(vs_iter);
                     if stack.len() > 1 {
                         let a = stack.pop().unwrap();

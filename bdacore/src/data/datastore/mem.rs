@@ -86,6 +86,6 @@ impl<T: Backend> Datastore for MemDatastore<T> {
         _kind: &'a EntityKind,
         field: &'a str,
     ) -> Result<ValueIterator, Box<dyn Error>> {
-        self.index.field_values(field)
+        self.index.values(field)
     }
 }
