@@ -1,0 +1,9 @@
+FROM rust:1.59 as builder
+WORKDIR /usr/src/bda
+COPY . .
+RUN rustup component add rustfmt 
+RUN cargo install --path bdadatastore
+
+FROM debian:11.3-slim
+COPY --from=builder /usr/local/cargo/bin/bdadatastore /usr/local/bin/bdadatastore
+CMD ["bdadatastore"]
