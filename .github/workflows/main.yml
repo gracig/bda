@@ -1,0 +1,14 @@
+name: Commit
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  commit:
+    uses: gracig/workflows/.github/workflows/main.yaml@main
+    with: 
+      rust-working-directory: "."
