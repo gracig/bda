@@ -6,9 +6,10 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch: {}
+
 jobs:
-  commit:
-    uses: gracig/workflows/.github/workflows/main.yaml@main
+  build:
+    uses: gracig/workflows/.github/workflows/main.yml@main
     with:
       commit-workflow: "bbw-rust"
       rust-working-directory: "."
