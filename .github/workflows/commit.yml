@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    uses: "gracig/workflows/.github/workflows/main.yml@main"
+    uses: "gracig/actions/.github/workflows/main.yml@main"
     with:
       commit-workflow: "bbw-rust"
       rust-working-directory: "."
