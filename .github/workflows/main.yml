@@ -8,7 +8,7 @@ on:
   workflow_dispatch: {}
 jobs:
   commit:
-    uses: "gracig/workflows/.github/workflows/main.yaml@main"
+    uses: gracig/workflows/.github/workflows/workflow-main.yaml@main
     with:
       commit-workflow: "bbw-rust"
       rust-working-directory: "."
