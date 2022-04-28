@@ -18,7 +18,7 @@ jobs:
       with:
         submodules: 'true'
     - name: Configure rust cache
-        uses: Swatinem/rust-cache@v1        
+      uses: Swatinem/rust-cache@v1        
     - name: Build
       run: cargo build --verbose
     - name: Run tests
