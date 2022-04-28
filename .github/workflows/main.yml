@@ -10,5 +10,6 @@ on:
 jobs:
   commit:
     uses: gracig/workflows/.github/workflows/main.yaml@main
-    with: 
+    with:
+      commit-workflow: "bbw-rust"
       rust-working-directory: "."
